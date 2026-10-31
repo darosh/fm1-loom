@@ -846,8 +846,8 @@ static void rand_notes(seq_t *s, int t, const step_t *st, int p, int ratchet, in
         }
         if (pc < 0)
             pc = src % 12;
-        lo = rand_oct_lo(par[TP_P4]);
-        oct = (int)(st_rand(tr->st_seed_pit, tr->st_step, ST_OCT) % (uint32_t)(lo + rand_oct_hi(par[TP_P4]) + 1)) - lo;
+        lo = rand_oct(par[TP_P4]);
+        oct = (int)(st_rand(tr->st_seed_pit, tr->st_step, ST_OCT) % (uint32_t)(lo + rand_oct(par[TP_OCTUP]) + 1)) - lo;
         note = clamp_note((src / 12 + oct) * 12 + pc);   /* the slot's note sets the register (C4 for an implicit one) */
         note = brain_note(s, t, note);        /* one pass, as any note the track plays */
         if (fx_on(s, t, PX_OCTAVE))

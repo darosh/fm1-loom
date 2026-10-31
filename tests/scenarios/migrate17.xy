@@ -4,6 +4,8 @@ storeload tests/fixtures/store_v17.bin
 reboot
 wait 400
 expect drumhits 0
+expect par2.octup 0          # (format 19's new last parameter: 0 on a format 17's tracks)
+expect name2 114
 expect tempo 97
 expect comp 1 1 15
 expect kcond1.1.1.1 100

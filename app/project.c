@@ -59,6 +59,8 @@ typedef char raw_fits[(RAW_LEN < 0x100000u) ? 1 : -1];   /* (lz.c packs up to 16
 #define SET_OLD ((SET_HDR + NALLTRK * TRK14 + 3u) & ~3u)   /* (the struct padded to its 4-byte alignment) */
 #define NTP15 ((uint32_t)TP_O2FINE)                       /* format 15's par[]: up to the keys' knobs 5..8 */
 #define TRK15 (NTP15 + NAME_LEN + 4u)
+#define NTP18 ((uint32_t)TP_OCTUP)                        /* format 16..18's par[]: up to the random player's octaves up */
+#define TRK18 (NTP18 + NAME_LEN + 4u)
 typedef char settings_head_fits[(SET_HDR + 4u + 64u <= PLAT_STORE_MAX && SET_OLD == 3804u) ? 1 : -1];   /* (format 14's size) */
 typedef char trk_layout[(offsetof(trk_t, name) == NTP && sizeof(trk_t) == NTP + NAME_LEN + 4u) ? 1 : -1];
 typedef char preset_packed[(sizeof(user_preset_t) == NAME_LEN + 2u + NTP_SOUND) ? 1 : -1];   /* (no padding) */
@@ -710,18 +712,24 @@ static int settings_unpack(int n)
             return -1;
         for (i = 0; i < SET_HDR; i++)
             ((uint8_t *)&proj)[i] = io_buf[i];
-        if (fmt >= 16u)
+        if (fmt >= 19u)
             return lz_decompress(&src, (uint8_t *)proj.trk, (uint32_t)sizeof proj.trk) ? -1 : 0;
-        if (lz_decompress(&src, (uint8_t *)proj.trk, NALLTRK * TRK15))   /* format 15: its tracks a byte shorter, */
-            return -1;
-        for (int t = NALLTRK - 1; t >= 0; t--) {  /* spread from the last (each moves up: copied from its end) */
-            const uint8_t *o = (const uint8_t *)proj.trk + (uint32_t)t * TRK15;
-            uint8_t *d = (uint8_t *)&proj.trk[t];
-            for (i = TRK15; i-- > NTP15;)       /* the name and rsv after the new parameter */
-                d[i + 1u] = o[i];
-            for (i = NTP15; i-- > 0;)
-                d[i] = o[i];
-            proj.trk[t].par[TP_O2FINE] = 64;
+        {   /* format 16..18: its tracks a byte shorter (no TP_OCTUP), format 15 two (no TP_O2FINE either): each track
+             * spread from the last, moving up by the bytes the old format lacks (copied from its end) */
+            uint32_t ntp = fmt >= 16u ? NTP18 : NTP15, trk = ntp + NAME_LEN + 4u, add = (uint32_t)sizeof(trk_t) - trk;
+            if (lz_decompress(&src, (uint8_t *)proj.trk, NALLTRK * trk))
+                return -1;
+            for (int t = NALLTRK - 1; t >= 0; t--) {
+                const uint8_t *o = (const uint8_t *)proj.trk + (uint32_t)t * trk;
+                uint8_t *d = (uint8_t *)&proj.trk[t];
+                for (i = trk; i-- > ntp;)           /* the name and rsv after the new parameters */
+                    d[i + add] = o[i];
+                for (i = ntp; i-- > 0;)
+                    d[i] = o[i];
+                if (fmt < 16u)
+                    proj.trk[t].par[TP_O2FINE] = 64;
+                proj.trk[t].par[TP_OCTUP] = 0;
+            }
         }
         return 0;
     }
@@ -739,6 +747,7 @@ static int settings_unpack(int n)
             for (int j = 0; j < DPX_N; j++)
                 tr->par[TP_DRUMX(k, j)] = DM_DEFAULT2[tr->par[TP_DRUM(k, DP_MODEL)] % NDM][j];
         tr->par[TP_O2FINE] = 64;
+        tr->par[TP_OCTUP] = 0;
     }
     return 0;
 }

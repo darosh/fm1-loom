@@ -86,3 +86,6 @@ expect name8 97
 expect par1.fine 64
 expect par2.fine 64
 expect par8.fine 64
+expect par2.octup 0          # (the random player's octaves up: past a format 15's tracks, 0)
+expect par8.octup 0
+expect par2.ap4 0

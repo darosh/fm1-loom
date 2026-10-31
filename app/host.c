@@ -757,6 +757,8 @@ static int param_of(const char *s)                 /* a TP_* name, dK.NAME (drum
             return k;
     if (ieq(s, "fine"))                             /* knit's osc 2 fine (TP_O2FINE, after the kit's) */
         return TP_O2FINE;
+    if (ieq(s, "octup"))                            /* the random player's octaves up (TP_OCTUP, p4 is its down) */
+        return TP_OCTUP;
     host_die("no parameter", s);
     return 0;
 }

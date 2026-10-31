@@ -1698,19 +1698,15 @@ int main(void)
         p[TP_PLAYER] = PL_RAND;
         check("the random knobs follow the player",
               !strcmp(tp_info_par(TP_P1, p)->name, "note %") && !strcmp(tp_info_par(TP_AP2, p)->name, "length") &&
-                  !strcmp(tp_info_par(TP_P4, p)->name, "octave"));
-        check("the random octave range: 25 values about a centre of 0",
-              tp_info_par(TP_P4, p)->lo == 0 && tp_info_par(TP_P4, p)->hi == 24 && tp_info_par(TP_P4, p)->def == 12);
-        {
-            static const struct { int v; const char *s; int lo, hi; } OC[] = {
-                {12, "0", 0, 0}, {13, "0/+1", 0, 1}, {15, "0/+3", 0, 3}, {16, "-1/+1", 1, 1}, {24, "-3/+3", 3, 3},
-                {11, "-1/0", 1, 0}, {9, "-3/0", 3, 0}, {8, "-1/+1", 1, 1}, {0, "-3/+3", 3, 3}};
-            for (unsigned i = 0; i < sizeof OC / sizeof OC[0]; i++) {
-                tp_text_par(TP_P4, OC[i].v, p, num, unit);
-                check("the random octave knob's path", !strcmp(num, OC[i].s) && rand_oct_lo(OC[i].v) == OC[i].lo &&
-                                                          rand_oct_hi(OC[i].v) == OC[i].hi);
-            }
-        }
+                  !strcmp(tp_info_par(TP_P4, p)->name, "oct down") && !strcmp(tp_info_par(TP_OCTUP, p)->name, "oct up"));
+        check("the random octave knobs: 0..3 each, from 0",
+              tp_info_par(TP_P4, p)->lo == 0 && tp_info_par(TP_P4, p)->hi == 3 && tp_info_par(TP_P4, p)->def == 0 &&
+                  tp_info_par(TP_OCTUP, p)->lo == 0 && tp_info_par(TP_OCTUP, p)->hi == 3 &&
+                  tp_info_par(TP_OCTUP, p)->def == 0);
+        check("oct up is the random player's only: another player has none", (p[TP_PLAYER] = PL_ARP, tp_info_par(TP_OCTUP, p)->hi == 0));
+        p[TP_PLAYER] = PL_RAND;
+        check("the octave range counts at most 3 (a project from before the two knobs)",
+              rand_oct(-1) == 0 && rand_oct(2) == 2 && rand_oct(3) == 3 && rand_oct(24) == 3);
         tp_text_par(TP_P2, 127, p, num, unit);
         check("random 127 is 100 %", !strcmp(num, "100") && !strcmp(unit, "%"));
         tp_text_par(TP_LTYPE, LT_WAVE, p, num, unit);

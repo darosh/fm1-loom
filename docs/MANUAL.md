@@ -1065,7 +1065,7 @@ Press **ARP**. **KNOB 1** picks the player: off, arp, strum, hold or random.
 - **hold** keeps the notes you play until you play the next ones.
 - **random** generates each step's note from a pool of pitch classes. The steps are its active slots: tap a step to
   switch it on, and with no step set every step plays (the slots show dim). A step's note only sets the register
-  (C4 for a plain tap): the pool gives the pitches, and the pattern's length and scale give the grid. Pick the pool
+  (C4 for a plain tap, shown as **\*4**): the pool gives the pitches, and the pattern's length and scale give the grid. Pick the pool
   on Steps: hold a step and press **SEQ** (as for a chord), and the keys toggle the current pattern's notes. With no
   pool picked, every pitch class is used. The pool is per pattern. A dot under a key marks a note your follow mode
   allows: the conductor's scale, or the chord tones for **harmony** and **chord deg**. A track that follows the
@@ -1081,11 +1081,12 @@ Press **ARP**. **KNOB 1** picks the player: off, arp, strum, hold or random.
     through the pattern before it repeats, and 32 steps and a length of 16 play the same phrase twice in one pass.
   - **vel %** is the chance a step's velocity changes, to anything from half to one and a half times its own.
   - **gate %** is the chance a step's note length changes, to anything from a tenth to twice its own.
-  - **octave** is how far a note may stray from the step's own octave: how many octaves below and above it, up to
-    three each way. In the middle it reads **0** and every note stays in the step's octave. Turn it right to allow
-    octaves above (**0/+1** to **0/+3**), left to allow octaves below (**-1/0** to **-3/0**); further out it widens
-    the other side too, and **-1/+1** spreads over three octaves around the step's. A step's own octave is its note's
-    (hold **SEQ** and press **OCT-** or **OCT+** to move a pattern's notes), and C4 for a step with no note set.
+  - **oct down** and **oct up** (page 3) are how far a note may stray from the step's own octave: how many octaves
+    below it and how many above it, 0 to 3 each. At 0 and 0 every note stays in the step's octave; at 1 and 2 a note
+    may land one octave below, in the step's own, or one or two above. A step shows its own octave in place of its
+    pitch, which is drawn: **\*4** for a step on a C4 (the middle C), **\*-1** for the lowest octave. It is the octave of the step's
+    note (hold **SEQ** and press **OCT-** or **OCT+** to move a pattern's notes), and C4 for a step with no note set,
+    which is shown dim.
 
 The arp and the strum play the track's steps too. A step's notes are arpeggiated for as long as the step lasts
 (give it a longer **LENGTH** for more notes), together with any keys you hold. A step with a chord is strummed in
