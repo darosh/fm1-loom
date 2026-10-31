@@ -54,6 +54,11 @@ knob 2 brain diatonic
 tapkey w0
 tapkey w2
 shot random_slots.png
+# a slot's note sets the register: the octaves a step may land in under its "on" (0/+2 here: C2 gives 2/4, C5 gives 5/7)
+notes 2 1 1 1 100 C2
+notes 2 1 3 1 100 C5
+wait 40
+shot random_octaves.png
 # play a phrase and save it (the pool lives in a lane: no project format change)
 tap PLAY
 wait 1200

@@ -3257,7 +3257,16 @@ static void draw_steps(void)
         } else if (on) {
             uint16_t dim = bg == K_NOW ? K_BG : K_DIM;
             if (pl_type(trk) == PL_RAND) {
+                char o[8], *e;
+                int b = (st->note[0] ? st->note[0] : 60) / 12, lo = b - rand_oct_lo(proj.trk[trk].par[TP_P4]),
+                    hi = b + rand_oct_hi(proj.trk[trk].par[TP_P4]);
+                lo = lo < 0 ? 0 : lo;                  /* the octaves it may land in, as seq.c clamps the note, in the */
+                hi = hi > 10 ? 10 : hi;                /* note names' numbers (C4 = 60): "3", or "2/4" */
+                e = num_i(lo - 1, o);
+                if (hi != lo)
+                    num_i(hi - 1, s_cat(e, "/"));
                 text_c(x + ST_MID, y + ST_L1, &FONT_XS, "on", implicit ? dim : fg);
+                text_c(x + ST_MID, y + ST_L2, &FONT_XS, o, dim);
             } else if (trk == AUX_PUNCH) {
                 int fx = st->note[0] - 1;
                 /* the effect in capitals (no descender to meet the line under it), three letters, over its group */
