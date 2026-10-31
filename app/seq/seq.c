@@ -573,7 +573,7 @@ static void brain_set_chord(seq_t *s, const uint8_t *nt, int n)
 }
 
 /* harmony: a note onto the active chord */
-static int chord_snap(int note, uint32_t w)          /* the nearest tone, register kept, ties down */
+__attribute__((noinline)) static int chord_snap(int note, uint32_t w)          /* the nearest tone, register kept, ties down */
 {
     int best = note, bd = 128;
     for (int i = 0; i < SN; i++) {
@@ -589,7 +589,7 @@ static int chord_snap(int note, uint32_t w)          /* the nearest tone, regist
     }
     return clamp_note(best);
 }
-static int chord_deg(int note, uint32_t w, int key, int scale)   /* the scale's degree picks a chord tone */
+__attribute__((noinline)) static int chord_deg(int note, uint32_t w, int key, int scale)   /* the scale's degree picks a chord tone */
 {
     uint16_t mask = scale_mask(scale);
     int n = chord_n(w), len = mask_len(mask), idx, tone;
@@ -605,7 +605,7 @@ static int chord_deg(int note, uint32_t w, int key, int scale)   /* the scale's 
 }
 
 /* a routed track's note through the brain (steps and live keys alike) */
-static int brain_note(const seq_t *s, int t, int note)
+__attribute__((noinline)) static int brain_note(const seq_t *s, int t, int note)
 {
     int mode = brain_follows(s, t) ? s->par[t][TP_BRAIN] : 0;
     if (!mode)
