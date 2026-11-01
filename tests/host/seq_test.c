@@ -1806,6 +1806,30 @@ static void t_generators(void)         /* EUCLID and TURING: a shadow of the ste
     run(7 * L16 + 100);
     CHECK(count(E_ON, 0) == 2);
     stop();
+    /* a longer or shorter loop while it runs keeps the loop as it sounds: slot j takes the old slot j mod the old length */
+    reset();
+    P.pat[0][0].len = 16;
+    st(0, 0)->note[0] = 60;
+    st(0, 0)->vel = 100;
+    st(0, 5)->note[0] = 60;
+    st(0, 5)->vel = 100;
+    gen_set(0, GEN_TURING, 8, 127, 64);
+    start();
+    run(15 * L16 + 100);
+    {
+        int was[8], ph = seq_gen_loop_ph(&S, 0);
+        for (int j = 0; j < 8; j++)
+            was[j] = seq_gen_loop_vel(&S, 0, j);
+        gen_set(0, GEN_TURING, 20, 127, 64);
+        run(200);
+        CHECK(seq_gen_loop_len(&S, 0) == 20 && seq_gen_loop_ph(&S, 0) == ph);
+        for (int j = 6; j < 16; j++)           /* (a slot reads 7 bits behind it and 4 ahead: the new loop's seam, 0..5 and 16..19, differs) */
+            CHECK(seq_gen_loop_vel(&S, 0, j) == was[j % 8]);
+        gen_set(0, GEN_TURING, 5, 127, 64);
+        run(200);
+        CHECK(seq_gen_loop_len(&S, 0) == 5 && seq_gen_loop_ph(&S, 0) == ph % 5);
+    }
+    stop();
     printf("ok %s\n", cur);
 }
 

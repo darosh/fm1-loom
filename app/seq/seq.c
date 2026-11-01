@@ -1627,9 +1627,23 @@ static void gen_turing_seed(seq_t *s, int t)       /* the register and the shado
         s->gen_s[t][i] = i < len && !step_empty(&tp->st[i]) ? (uint8_t)(0x80u | (unsigned)v) : 0u;
     }
 }
+/* TURING's length changed while it runs: the loop is kept as it sounds, slot by slot (slot j takes the old slot j mod
+ * the old length: longer, the loop is repeated; shorter, cut), and the playhead stays on its slot. So the grid does not
+ * shuffle as the length is turned, and the sound goes on from where it was */
+static void gen_turing_resize(seq_t *s, int t, int from, int to)
+{
+    uint64_t old = s->gen_reg[t] & (~0ull >> (64 - from)), reg = 0;
+    int ph = s->gen_ph[t] % from, ph2 = ph % to, j;
+    for (j = 0; j < to; j++) {
+        int c2 = ((j - ph2 - 1) % to + to) % to, c = ((j % from - ph - 1) % from + from) % from;
+        reg |= (old >> c & 1ull) << c2;
+    }
+    s->gen_reg[t] = reg;
+    s->gen_ph[t] = (uint8_t)ph2;
+}
 static void gen_load(seq_t *s, int t, int again)   /* track t's lane settings and its shadow (again: from the pattern) */
 {
-    int pat = s->ppat[t] < NPATT ? s->ppat[t] : 0, was = s->gen_p[t][0], k;
+    int pat = s->ppat[t] < NPATT ? s->ppat[t] : 0, was = s->gen_p[t][0], was_n = s->gen_p[t][1], k;
     uint8_t g[4] = {0, 0, 0, 0};
     if (gen_ok(s, t))
         lane_gen_get(s->P->lane, t, pat, g);
@@ -1641,6 +1655,11 @@ static void gen_load(seq_t *s, int t, int again)   /* track t's lane settings an
         gen_euclid(s, t);
     else if (g[0] == GEN_TURING && again)
         gen_turing_seed(s, t);
+    else if (g[0] == GEN_TURING && was == GEN_TURING && was_n != g[1]) {
+        int a = was_n < 2 ? 2 : was_n > 64 ? 64 : was_n, b = g[1] < 2 ? 2 : g[1] > 64 ? 64 : g[1];
+        if (a != b)
+            gen_turing_resize(s, t, a, b);
+    }
 }
 static void gen_refresh(seq_t *s)      /* the lanes' settings and the shadows, once a seq_advance call */
 {

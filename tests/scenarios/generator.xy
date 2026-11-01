@@ -68,6 +68,15 @@ expect gen 2 1 2 64 50 50
 tap PLAY
 wait 9000
 shot generator_turing_64.png
+# turned down to 8 while it plays: the first 8 slots of the loop, the rest outside it; and back up: the loop repeated
+turn K2 -56
+expect gen 2 1 2 8 50 50
+wait 300
+shot generator_turing_8.png
+turn K2 56
+expect gen 2 1 2 64 50 50
+wait 300
+shot generator_turing_64_again.png
 tap PLAY
 # saved with the project, in the pattern's lane: no format change
 projsave 1

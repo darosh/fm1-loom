@@ -5937,7 +5937,7 @@ static void draw_gen(void)                           /* the generator page: the 
         if (rn[1])                                   /* a chord: the lowest note and how many more */
             num_s((uint32_t)(rn[2] ? rn[3] ? 3 : 2 : 1), s_cat(e, " +"));
         cv_text(4, 0, &FONT_XS, t, K_TEXT);
-        int loop = mode == GEN_TURING && seq_gen_loop_len(&seq, trk) > tp->len,     /* a loop longer than the pattern: */
+        int loop = mode == GEN_TURING,                                                  /* turing: the loop, whatever its length: */
             ln = seq_gen_loop_len(&seq, trk);                                       /* the grid shows the loop, not the steps */
         for (int b = 0; b < NBAR; b++)
             for (int i = 0; i < 16; i++) {
