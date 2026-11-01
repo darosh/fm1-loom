@@ -3509,7 +3509,8 @@ static uint32_t hash_gen(uint32_t h, int trk)          /* a generator track's sh
     for (int i = 0; i < NSTEP; i += 4)
         h = hash_u(h, (uint32_t)seq.gen_s[trk][i] | (uint32_t)seq.gen_s[trk][i + 1] << 8 | (uint32_t)seq.gen_s[trk][i + 2] << 16 |
                           (uint32_t)seq.gen_s[trk][i + 3] << 24);
-    return hash_u(h, (uint32_t)seq.gen_p[trk][0]);
+    return hash_u(hash_u(h, (uint32_t)seq.gen_p[trk][0] | (uint32_t)seq.gen_ph[trk] << 8 | (uint32_t)seq.gen_p[trk][1] << 16),
+                  (uint32_t)seq.gen_reg[trk] ^ (uint32_t)(seq.gen_reg[trk] >> 32));
 }
 static void draw_weave_steps(void)
 {
@@ -5878,15 +5879,17 @@ static void draw_gen(void)                           /* the generator page: the 
         if (rn[1])                                   /* a chord: the lowest note and how many more */
             num_s((uint32_t)(rn[2] ? rn[3] ? 3 : 2 : 1), s_cat(e, " +"));
         cv_text(4, 0, &FONT_XS, t, K_TEXT);
+        int loop = mode == GEN_TURING && seq_gen_loop_len(&seq, trk) > tp->len,     /* a loop longer than the pattern: */
+            ln = seq_gen_loop_len(&seq, trk);                                       /* the grid shows the loop, not the steps */
         for (int b = 0; b < NBAR; b++)
             for (int i = 0; i < 16; i++) {
-                int s = b * 16 + i, in = s < tp->len, v = seq_gen_vel(&seq, trk, s);
+                int s = b * 16 + i, in = loop ? s < ln : s < tp->len, v = loop ? in ? seq_gen_loop_vel(&seq, trk, s) : 0 : seq_gen_vel(&seq, trk, s);
                 int32_t x = 4 + i * 14, y = 16 + b * 26;
                 uint16_t bg = !in ? K_BG : v ? K_TINT : K_PANEL;
                 cv_round(x, y, 13, 22, 2, bg);
                 if (!in)
                     cv_frame(x, y, 13, 22, 2, K_LINE, K_BG);
-                else if (playing() && s == ph)       /* the playhead: a frame (under the bar, which keeps its colour) */
+                else if (playing() && s == (loop ? seq_gen_loop_ph(&seq, trk) : ph))       /* the playhead: a frame (under the bar, which keeps its colour) */
                     cv_frame(x, y, 13, 22, 2, K_TEXT, bg);
                 if (in && v) {                       /* the hit: a bright bar from the foot, as tall as its velocity */
                     int32_t hh = 3 + v * 18 / 127;

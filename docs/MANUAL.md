@@ -497,8 +497,9 @@ back to C4. A step with no hit is silent.
 
 Turing starts from the steps the pattern already has, so you can write a rhythm, turn it on and let it drift. The
 register starts again with the transport and when the pattern changes. The loop can be longer or shorter than the pattern: it runs on across passes (64 bits against a 16-step
-pattern is a four-bar loop; 5 bits drifts against the bar). The grid and COMMIT show and write one pass, the
-pattern's own length.
+pattern is a four-bar loop; 5 bits drifts against the bar). COMMIT writes one pass, the pattern's own
+length. When the loop is longer than the pattern, the Generator page's grid shows the loop itself, all of its bits, with
+the frame on the slot last played; the Steps page shows the pass.
 
 **Keep it.** The **SEL** list on the Generator page has COMMIT GENERATOR, which writes the live copy into the
 pattern: a hit on an empty step gets the root note, a step with no hit loses its notes. Set the mode to off to

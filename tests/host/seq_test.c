@@ -1723,6 +1723,21 @@ static void t_generators(void)         /* EUCLID and TURING: a shadow of the ste
     run(15 * L16 + 100);
     CHECK(seq_gen_mode(&S, 0) == GEN_TURING);
     stop();
+    /* TURING's loop as the grid shows it (seq_gen_loop_*): slot j of a 20-bit loop is what step 20 + j (the last pass)
+     * played, lock 127 (the loop repeats exactly); the playhead is the slot last played */
+    reset();
+    P.pat[0][0].len = 40;
+    st(0, 0)->note[0] = 60;
+    st(0, 0)->vel = 100;
+    st(0, 3)->note[0] = 60;
+    st(0, 3)->vel = 100;
+    gen_set(0, GEN_TURING, 20, 127, 64);
+    start();
+    run(39 * L16 + 100);
+    CHECK(seq_gen_loop_len(&S, 0) == 20 && seq_gen_loop_ph(&S, 0) == 19);
+    for (int j = 0; j < 20; j++)
+        CHECK(seq_gen_loop_vel(&S, 0, j) == seq_gen_vel(&S, 0, 20 + j));
+    stop();
     /* TURING, lock 127: the loop repeats exactly, every 4 steps; density 127 plays all */
     reset();
     P.pat[0][0].len = 16;

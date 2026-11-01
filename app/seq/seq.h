@@ -243,7 +243,7 @@ typedef struct {
      * the settings last read from the lane (mode, 3 values); gen_reg TURING's shift register. The interrupt
      * writes the shadow, the main loop (the grid, COMMIT) reads it */
     uint8_t gen_s[NTRK][NSTEP];
-    uint8_t gen_p[NTRK][4], gen_pat[NTRK], gen_len[NTRK];
+    uint8_t gen_p[NTRK][4], gen_pat[NTRK], gen_len[NTRK], gen_ph[NTRK];
     uint64_t gen_reg[NTRK];
     uint16_t gen_ep;
     volatile uint8_t gen_dirty;       /* bit t: the main loop changed track t's lane: read it again */
@@ -389,6 +389,11 @@ static inline int seq_gen_vel(const seq_t *s, int t, int step)
 {
     return t >= 0 && t < NTRK && step >= 0 && step < NSTEP && (s->gen_s[t][step] & 0x80u) ? s->gen_s[t][step] & 0x7Fu : 0;
 }
+/* TURING's loop as the register holds it: its length (2..64) and the velocity (0 = no hit) of loop slot j, the step
+ * that comes (j - the one last played) places on: the Generator page's grid, whatever the pattern's length */
+int seq_gen_loop_len(const seq_t *s, int t);
+int seq_gen_loop_ph(const seq_t *s, int t);
+int seq_gen_loop_vel(const seq_t *s, int t, int j);
 /* step helpers (main loop) */
 void step_set_notes(step_t *st, const uint8_t *notes, int n, int vel);
 void step_toggle_note(step_t *st, int note);

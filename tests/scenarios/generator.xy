@@ -61,12 +61,19 @@ wait 100
 tap PLAY
 wait 1500
 shot generator_turing.png
+# the loop as long as it goes (64 bits, the pattern 16 steps): every slot of the grid should still get hits
+tap PLAY
+turn K2 48
+expect gen 2 1 2 64 50 50
+tap PLAY
+wait 9000
+shot generator_turing_64.png
 tap PLAY
 # saved with the project, in the pattern's lane: no format change
 projsave 1
 reboot
 wait 400
-expect gen 2 1 2 16 50 50
+expect gen 2 1 2 64 50 50
 # off: the lane goes
 tap ARP
 turn SELECT 1

@@ -1621,6 +1621,7 @@ static void gen_turing_seed(seq_t *s, int t)       /* the register and the shado
         reg = (((uint64_t)h << 32 | st_hash(h)) & (~0ull >> (64 - n))) | 1u;
     }
     s->gen_reg[t] = reg;
+    s->gen_ph[t] = (uint8_t)(n - 1);                  /* (the first step plays loop slot 0) */
     for (i = 0; i < NSTEP; i++) {
         int v = tp->st[i].vel > 127 ? 127 : tp->st[i].vel ? tp->st[i].vel : 100;
         s->gen_s[t][i] = i < len && !step_empty(&tp->st[i]) ? (uint8_t)(0x80u | (unsigned)v) : 0u;
@@ -1662,8 +1663,22 @@ static void gen_turing_step(seq_t *s, int t, int p)   /* step p of a TURING trac
         wrap ^= 1u;
     reg = reg >> 1 | wrap << (n - 1);
     s->gen_reg[t] = reg;
+    s->gen_ph[t] = (uint8_t)((s->gen_ph[t] + 1) % n);
     v = (uint32_t)(n >= 7 ? reg >> (n - 7) : reg << (7 - n));         /* the top seven bits, 0..127 */
     s->gen_s[t][p] = d && v <= (uint32_t)d ? (uint8_t)(0x80u | (56u + 4u * (uint32_t)(reg & 15u))) : 0u;
+}
+int seq_gen_loop_len(const seq_t *s, int t)
+{
+    int n = t >= 0 && t < NTRK ? s->gen_p[t][1] : 0;
+    return n < 2 ? 2 : n > 64 ? 64 : n;
+}
+int seq_gen_loop_ph(const seq_t *s, int t) { return s->gen_ph[t] % seq_gen_loop_len(s, t); }
+int seq_gen_loop_vel(const seq_t *s, int t, int j)    /* (the loop run on without a flip: the lock's drift is not shown) */
+{
+    int n = seq_gen_loop_len(s, t), k = (j - seq_gen_loop_ph(s, t) + n) % n, d = s->gen_p[t][3] > 127 ? 127 : s->gen_p[t][3];
+    uint64_t reg = s->gen_reg[t] & (~0ull >> (64 - n)), r = k ? (reg >> k | reg << (n - k)) & (~0ull >> (64 - n)) : reg;
+    uint32_t v = (uint32_t)(n >= 7 ? r >> (n - 7) : r << (7 - n));
+    return d && v <= (uint32_t)d ? (int)(56u + 4u * (uint32_t)(r & 15u)) : 0;
 }
 /* the step a generator track plays at p: the stored one (its tricks, notes) with the shadow's velocity, or the
  * root for a hit that has no notes; no notes when the shadow has no hit */
