@@ -1590,7 +1590,7 @@ static void restart(seq_t *s, uint32_t tracks)   /* tracks whose pattern switche
  * the pattern holds, else 60). The tricks, chance and nudge of the stored step stay too.
  *   EUCLID  length (1..64), hits, rotate: the hits spread evenly over the length, rotated; the cycle repeats
  *           from step 1 of every pass. A pure function of the settings
- *   TURING  a shift register of length (2..16) bits, the classic looping random-sequence idea: each step it
+ *   TURING  a shift register of length (2..64) bits, the classic looping random-sequence idea: each step it
  *           turns one place round, and the bit that wraps from one end to the other is inverted at a chance the
  *           lock sets (127: never, so the loop repeats exactly every length steps; falling to 0: a coin toss, the
  *           chance rising with the square of the turn, so the last stretch before 127 is the fine one). The
@@ -1610,13 +1610,16 @@ static void gen_euclid(seq_t *s, int t)
 static void gen_turing_seed(seq_t *s, int t)       /* the register and the shadow from the stored pattern */
 {
     const tpat_t *tp = tpat(s, t);
-    int n = s->gen_p[t][1] < 2 ? 2 : s->gen_p[t][1] > 16 ? 16 : s->gen_p[t][1], i, len = pat_len(tp);
-    uint32_t reg = 0;
+    int n = s->gen_p[t][1] < 2 ? 2 : s->gen_p[t][1] > 64 ? 64 : s->gen_p[t][1], i, len = pat_len(tp);
+    uint64_t reg = 0;
     for (i = 0; i < n; i++)
-        reg |= (uint32_t)(i < len && !step_empty(&tp->st[i])) << i;
+        reg |= (uint64_t)(i < len && !step_empty(&tp->st[i])) << i;
     if (!reg)
-        reg = (st_hash(0x7E57u ^ (uint32_t)(t + 1) * 0x9E3779B9u) & ((1u << n) - 1u)) | 1u;
-    s->gen_reg[t] = (uint16_t)reg;
+        {
+        uint32_t h = st_hash(0x7E57u ^ (uint32_t)(t + 1) * 0x9E3779B9u);
+        reg = (((uint64_t)h << 32 | st_hash(h)) & (~0ull >> (64 - n))) | 1u;
+    }
+    s->gen_reg[t] = reg;
     for (i = 0; i < NSTEP; i++) {
         int v = tp->st[i].vel > 127 ? 127 : tp->st[i].vel ? tp->st[i].vel : 100;
         s->gen_s[t][i] = i < len && !step_empty(&tp->st[i]) ? (uint8_t)(0x80u | (unsigned)v) : 0u;
@@ -1650,14 +1653,15 @@ static void gen_refresh(seq_t *s)      /* the lanes' settings and the shadows, o
 static void gen_turing_step(seq_t *s, int t, int p)   /* step p of a TURING track starts: the register decides it */
 {
     const uint8_t *g = s->gen_p[t];
-    int n = g[1] < 2 ? 2 : g[1] > 16 ? 16 : g[1], lock = g[2] > 127 ? 127 : g[2], d = g[3] > 127 ? 127 : g[3];
-    uint32_t reg = s->gen_reg[t] & ((1u << n) - 1u), wrap = reg & 1u, u = (uint32_t)(127 - lock), v;
+    int n = g[1] < 2 ? 2 : g[1] > 64 ? 64 : g[1], lock = g[2] > 127 ? 127 : g[2], d = g[3] > 127 ? 127 : g[3];
+    uint64_t reg = s->gen_reg[t] & (~0ull >> (64 - n)), wrap = reg & 1u;
+    uint32_t u = (uint32_t)(127 - lock), v;
     if ((rng_next(&s->t[t].rng) >> 8 & 0xFFFFu) < u * u * 32768u / 16129u)   /* (u = 127: half) */
         wrap ^= 1u;
     reg = reg >> 1 | wrap << (n - 1);
-    s->gen_reg[t] = (uint16_t)reg;
-    v = n >= 7 ? reg >> (n - 7) : reg << (7 - n);         /* the top seven bits, 0..127 */
-    s->gen_s[t][p] = d && v <= (uint32_t)d ? (uint8_t)(0x80u | (56u + 4u * (reg & 15u))) : 0u;
+    s->gen_reg[t] = reg;
+    v = (uint32_t)(n >= 7 ? reg >> (n - 7) : reg << (7 - n));         /* the top seven bits, 0..127 */
+    s->gen_s[t][p] = d && v <= (uint32_t)d ? (uint8_t)(0x80u | (56u + 4u * (uint32_t)(reg & 15u))) : 0u;
 }
 /* the step a generator track plays at p: the stored one (its tricks, notes) with the shadow's velocity, or the
  * root for a hit that has no notes; no notes when the shadow has no hit */

@@ -493,7 +493,7 @@ back to C4. A step with no hit is silent.
 | Mode | Knob 2 | Knob 3 | Knob 4 | What it does |
 |---|---|---|---|---|
 | euclid | length | hits | rotate | spreads that many hits as evenly as possible over that length, rotated. The cycle starts again at step 1 of every pass |
-| turing | length | lock | density | a looping shift register of 2 to 16 bits. Lock 127 repeats the loop exactly; lower, the bit that wraps round is flipped more and more often (0 is a coin toss). Density is how many steps play (0 none, 127 all); the velocity follows the register |
+| turing | length | lock | density | a looping shift register of 2 to 64 bits. Lock 127 repeats the loop exactly; lower, the bit that wraps round is flipped more and more often (0 is a coin toss). Density is how many steps play (0 none, 127 all); the velocity follows the register |
 
 Turing starts from the steps the pattern already has, so you can write a rhythm, turn it on and let it drift. The
 register starts again with the transport and when the pattern changes.

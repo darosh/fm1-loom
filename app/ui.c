@@ -2310,25 +2310,25 @@ static void gen_knob(int trk, int k, int32_t e)
         return;
     lane_gen_get(pats.lane, trk, pt, g);
     if (k == 0) {
-        int m = clampi(g[0] + d, 0, NGEN - 1), len = tpat(trk)->len;
+        int m = clampi(g[0] + d, 0, NGEN - 1);
         if (m == g[0])
             return;
         g[0] = (uint8_t)m;
-        if (m == GEN_EUCLID) {                       /* the pattern's length, a quarter of it hit */
-            g[1] = (uint8_t)clampi(len, 1, NSTEP);
+        if (m == GEN_EUCLID) {                       /* 16 steps, a quarter of them hit */
+            g[1] = 16;                                   /* (its own length, not the pattern's) */
             g[2] = (uint8_t)clampi(g[1] / 4, 1, NSTEP);
             g[3] = 0;
-        } else if (m == GEN_TURING) {                /* 8 bits, the loop mostly kept, most steps playing */
-            g[1] = 8;
-            g[2] = 100;
-            g[3] = 100;
+        } else if (m == GEN_TURING) {                /* 16 bits, lock and density halfway */
+            g[1] = 16;
+            g[2] = 50;
+            g[3] = 50;
         } else {
             g[1] = g[2] = g[3] = 0;
         }
     } else if (g[0] == GEN_EUCLID) {
         g[k] = (uint8_t)clampi(g[k] + (int)e, k == 1 ? 1 : 0, k == 3 ? NSTEP - 1 : NSTEP);
     } else if (g[0] == GEN_TURING) {
-        g[k] = (uint8_t)clampi(g[k] + (int)e, k == 1 ? 2 : 0, k == 1 ? 16 : 127);
+        g[k] = (uint8_t)clampi(g[k] + (int)e, k == 1 ? 2 : 0, k == 1 ? NSTEP : 127);
     } else {
         return;
     }

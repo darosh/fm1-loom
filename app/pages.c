@@ -1734,7 +1734,7 @@ static void page_knobs(knob_t *k)
             kv(&k[2], "HITS", v[1], g[2], NSTEP);
             kv(&k[3], "ROTATE", v[2], g[3], NSTEP - 1);
         } else if (g[0] == GEN_TURING) {
-            kv(&k[1], "LENGTH", v[0], g[1], 16);
+            kv(&k[1], "LENGTH", v[0], g[1], NSTEP);
             kv(&k[2], "LOCK", v[1], g[2], 127);
             kv(&k[3], "DENSITY", v[2], g[3], 127);
         }

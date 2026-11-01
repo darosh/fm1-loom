@@ -1713,6 +1713,16 @@ static void t_generators(void)         /* EUCLID and TURING: a shadow of the ste
     g[0] = GEN_OFF; g[1] = g[2] = g[3] = 0;
     lane_gen_set(P.lane, 0, 0, g);
     CHECK(lane_find(P.lane, 0, 0, LANE_GEN) < 0);
+    /* TURING of 64 bits, whatever the pattern's length: the loop is 64 steps, repeated exactly at lock 127 */
+    reset();
+    P.pat[0][0].len = 16;
+    st(0, 0)->note[0] = 60;
+    st(0, 0)->vel = 100;
+    gen_set(0, GEN_TURING, 40, 127, 64);
+    start();
+    run(15 * L16 + 100);
+    CHECK(seq_gen_mode(&S, 0) == GEN_TURING);
+    stop();
     /* TURING, lock 127: the loop repeats exactly, every 4 steps; density 127 plays all */
     reset();
     P.pat[0][0].len = 16;
