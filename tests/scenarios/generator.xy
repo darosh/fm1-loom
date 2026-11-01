@@ -9,20 +9,20 @@ expect page Weave
 turn SELECT 1
 expect page Generator
 shot generator_off.png
-# euclid: the mode, then its start values (the pattern's length 16, a quarter of it: 4 hits)
+# euclid: the mode, then its start values (no length of its own, a quarter of the pattern's 16: 4 hits)
 turn K1 1
-expect gen 2 1 1 16 4 0
+expect gen 2 1 1 0 4 0
 # (the cycle repeats over the 64 steps: 4 hits in 16 is 16)
 wait 100
 expect genhits 2 16
 shot generator_euclid.png
-turn K2 -8
-expect gen 2 1 1 8 4 0
+turn K2 4
+expect gen 2 1 1 0 8 0
 wait 100
 expect genhits 2 32
-turn K3 -1
-turn K4 1
-expect gen 2 1 1 8 3 1
+turn K2 -5
+turn K3 1
+expect gen 2 1 1 0 3 1
 shot generator_euclid_rotated.png
 # the live copy is not the pattern: a step's note stays empty until COMMIT
 expect note 2 1 1 0

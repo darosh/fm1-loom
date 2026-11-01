@@ -492,11 +492,13 @@ back to C4. A step with no hit is silent.
 
 | Mode | Knob 2 | Knob 3 | Knob 4 | What it does |
 |---|---|---|---|---|
-| euclid | length | hits | rotate | spreads that many hits as evenly as possible over that length, rotated. The cycle starts again at step 1 of every pass |
+| euclid | hits | rotate | | spreads that many hits as evenly as possible over the pattern's own length (the step length sets it), rotated |
 | turing | length | lock | density | a looping shift register of 2 to 64 bits. Lock 127 repeats the loop exactly; lower, the bit that wraps round is flipped more and more often (0 is a coin toss). Density is how many steps play (0 none, 127 all); the velocity follows the register |
 
 Turing starts from the steps the pattern already has, so you can write a rhythm, turn it on and let it drift. The
-register starts again with the transport and when the pattern changes.
+register starts again with the transport and when the pattern changes. The loop can be longer or shorter than the pattern: it runs on across passes (64 bits against a 16-step
+pattern is a four-bar loop; 5 bits drifts against the bar). The grid and COMMIT show and write one pass, the
+pattern's own length.
 
 **Keep it.** The **SEL** list on the Generator page has COMMIT GENERATOR, which writes the live copy into the
 pattern: a hit on an empty step gets the root note, a step with no hit loses its notes. Set the mode to off to

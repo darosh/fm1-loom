@@ -243,7 +243,7 @@ typedef struct {
      * the settings last read from the lane (mode, 3 values); gen_reg TURING's shift register. The interrupt
      * writes the shadow, the main loop (the grid, COMMIT) reads it */
     uint8_t gen_s[NTRK][NSTEP];
-    uint8_t gen_p[NTRK][4], gen_pat[NTRK];
+    uint8_t gen_p[NTRK][4], gen_pat[NTRK], gen_len[NTRK];
     uint64_t gen_reg[NTRK];
     uint16_t gen_ep;
     volatile uint8_t gen_dirty;       /* bit t: the main loop changed track t's lane: read it again */

@@ -1676,11 +1676,11 @@ static void t_generators(void)         /* EUCLID and TURING: a shadow of the ste
     uint8_t g[4];
     cur = "generators";
     reset();
-    P.pat[0][0].len = 16;
-    gen_set(0, GEN_EUCLID, 8, 3, 0);              /* 3 in 8: x..x..x. */
+    P.pat[0][0].len = 8;
+    gen_set(0, GEN_EUCLID, 0, 3, 0);              /* 3 in the pattern's 8: x..x..x. */
     start();
-    run(15 * L16 + 100);
-    CHECK(count(E_ON, 0) == 6);                   /* twice round the 16 */
+    run(7 * L16 + 100);
+    CHECK(count(E_ON, 0) == 3);
     CHECK(on_n(0)->a == 60);                      /* no notes in the pattern: the root */
     CHECK(seq_gen_vel(&S, 0, 0) && !seq_gen_vel(&S, 0, 1) && !seq_gen_vel(&S, 0, 2) && seq_gen_vel(&S, 0, 3));
     CHECK(step_empty(st(0, 0)) && step_empty(st(0, 3)));   /* the stored pattern is untouched */
@@ -1688,14 +1688,14 @@ static void t_generators(void)         /* EUCLID and TURING: a shadow of the ste
     /* rotate by 1 moves the hits one step on; hits 0 is silent */
     reset();
     P.pat[0][0].len = 8;
-    gen_set(0, GEN_EUCLID, 8, 3, 1);
+    gen_set(0, GEN_EUCLID, 0, 3, 1);
     start();
     run(7 * L16 + 100);
     CHECK(count(E_ON, 0) == 3);
     CHECK(seq_gen_vel(&S, 0, 1) && !seq_gen_vel(&S, 0, 0) && seq_gen_vel(&S, 0, 4) && seq_gen_vel(&S, 0, 7));
     stop();
     reset();
-    gen_set(0, GEN_EUCLID, 16, 0, 0);
+    gen_set(0, GEN_EUCLID, 0, 0, 0);
     start();
     run(15 * L16 + 100);
     CHECK(count(E_ON, 0) == 0);
@@ -1705,7 +1705,7 @@ static void t_generators(void)         /* EUCLID and TURING: a shadow of the ste
     P.pat[0][0].len = 8;
     st(0, 0)->note[0] = 67;
     st(0, 0)->vel = 90;
-    gen_set(0, GEN_EUCLID, 8, 1, 0);
+    gen_set(0, GEN_EUCLID, 0, 1, 0);
     start();
     run(7 * L16 + 100);
     CHECK(count(E_ON, 0) == 1 && on_n(0)->a == 67);
@@ -1773,7 +1773,7 @@ static void t_generators(void)         /* EUCLID and TURING: a shadow of the ste
     st(0, 0)->note[1] = 64;
     st(0, 0)->note[2] = 67;
     st(0, 0)->vel = 100;
-    gen_set(0, GEN_EUCLID, 8, 2, 0);
+    gen_set(0, GEN_EUCLID, 0, 2, 0);
     start();
     run(7 * L16 + 100);
     CHECK(count(E_ON, 0) == 6);
@@ -1786,7 +1786,7 @@ static void t_generators(void)         /* EUCLID and TURING: a shadow of the ste
     par[0][TP_P4] = 0;                            /* the step's own octave */
     par[0][TP_AP2] = 8;
     lane_pool_set(P.lane, 0, 0, 1u << 0);
-    gen_set(0, GEN_EUCLID, 8, 2, 0);
+    gen_set(0, GEN_EUCLID, 0, 2, 0);
     start();
     run(7 * L16 + 100);
     CHECK(count(E_ON, 0) == 2);

@@ -1730,9 +1730,8 @@ static void page_knobs(knob_t *k)
         for (int i = 0; i < 3; i++)
             num_s(g[i + 1], v[i]);
         if (g[0] == GEN_EUCLID) {
-            kv(&k[1], "LENGTH", v[0], g[1], NSTEP);
-            kv(&k[2], "HITS", v[1], g[2], NSTEP);
-            kv(&k[3], "ROTATE", v[2], g[3], NSTEP - 1);
+            kv(&k[1], "HITS", v[1], g[2], NSTEP);
+            kv(&k[2], "ROTATE", v[2], g[3], NSTEP - 1);
         } else if (g[0] == GEN_TURING) {
             kv(&k[1], "LENGTH", v[0], g[1], NSTEP);
             kv(&k[2], "LOCK", v[1], g[2], 127);

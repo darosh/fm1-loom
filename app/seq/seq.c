@@ -1588,8 +1588,8 @@ static void restart(seq_t *s, uint32_t tracks)   /* tracks whose pattern switche
  * its steps (seq.h gen_s), not the stored ones; the stored pattern stays as it was until COMMIT writes the shadow
  * in. A hit with notes of its own in the pattern plays them; one without plays the track's root (the first note
  * the pattern holds, else 60). The tricks, chance and nudge of the stored step stay too.
- *   EUCLID  length (1..64), hits, rotate: the hits spread evenly over the length, rotated; the cycle repeats
- *           from step 1 of every pass. A pure function of the settings
+ *   EUCLID  hits, rotate (val[2], val[3]): the hits spread evenly over the pattern's own length, rotated. A pure
+ *           function of the settings and the length
  *   TURING  a shift register of length (2..64) bits, the classic looping random-sequence idea: each step it
  *           turns one place round, and the bit that wraps from one end to the other is inverted at a chance the
  *           lock sets (127: never, so the loop repeats exactly every length steps; falling to 0: a coin toss, the
@@ -1601,7 +1601,8 @@ static int gen_ok(const seq_t *s, int t) { return t >= 0 && t < NTRK && !is_drum
 static void gen_euclid(seq_t *s, int t)
 {
     const uint8_t *g = s->gen_p[t];
-    int n = g[1] < 1 ? 1 : g[1] > NSTEP ? NSTEP : g[1], h = g[2] > n ? n : g[2], r = g[3] % n, i;
+    int n = pat_len(tpat(s, t)), h = g[2] > n ? n : g[2], r = g[3] % n, i;
+    s->gen_len[t] = (uint8_t)n;
     for (i = 0; i < NSTEP; i++) {
         int k = (i % n + n - r) % n;
         s->gen_s[t][i] = h && (k * h) % n < h ? 0x80u | 100u : 0u;
@@ -1646,7 +1647,8 @@ static void gen_refresh(seq_t *s)      /* the lanes' settings and the shadows, o
     int t;
     s->gen_dirty = 0;
     for (t = 0; t < NTRK; t++)
-        if ((dirty >> t & 1u) || (s->ppat[t] < NPATT ? s->ppat[t] : 0) != s->gen_pat[t] || s->gen_ep != lane_epoch)
+        if ((dirty >> t & 1u) || (s->ppat[t] < NPATT ? s->ppat[t] : 0) != s->gen_pat[t] || s->gen_ep != lane_epoch
+            || (s->gen_p[t][0] == GEN_EUCLID && pat_len(tpat(s, t)) != s->gen_len[t]))
             gen_load(s, t, 0);
     s->gen_ep = lane_epoch;
 }

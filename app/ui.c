@@ -2314,9 +2314,9 @@ static void gen_knob(int trk, int k, int32_t e)
         if (m == g[0])
             return;
         g[0] = (uint8_t)m;
-        if (m == GEN_EUCLID) {                       /* 16 steps, a quarter of them hit */
-            g[1] = 16;                                   /* (its own length, not the pattern's) */
-            g[2] = (uint8_t)clampi(g[1] / 4, 1, NSTEP);
+        if (m == GEN_EUCLID) {                       /* a quarter of the pattern's steps hit */
+            g[1] = 0;                                    /* (no length of its own: the pattern's) */
+            g[2] = (uint8_t)clampi(tpat(trk)->len / 4, 1, NSTEP);
             g[3] = 0;
         } else if (m == GEN_TURING) {                /* 16 bits, lock and density halfway */
             g[1] = 16;
@@ -2325,8 +2325,10 @@ static void gen_knob(int trk, int k, int32_t e)
         } else {
             g[1] = g[2] = g[3] = 0;
         }
-    } else if (g[0] == GEN_EUCLID) {
-        g[k] = (uint8_t)clampi(g[k] + (int)e, k == 1 ? 1 : 0, k == 3 ? NSTEP - 1 : NSTEP);
+    } else if (g[0] == GEN_EUCLID) {                 /* K2 hits, K3 rotate (K4 none) */
+        if (k == 3)
+            return;
+        g[k + 1] = (uint8_t)clampi(g[k + 1] + (int)e, 0, k == 2 ? NSTEP - 1 : NSTEP);
     } else if (g[0] == GEN_TURING) {
         g[k] = (uint8_t)clampi(g[k] + (int)e, k == 1 ? 2 : 0, k == 1 ? NSTEP : 127);
     } else {
