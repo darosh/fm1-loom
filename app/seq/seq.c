@@ -1529,6 +1529,7 @@ static void resync(seq_t *s, int t)
     }
 }
 
+static void gen_load(seq_t *s, int t, int again);
 static void track_reset(seq_t *s, int t)
 {
     seq_trk_t *tr = &s->t[t];
@@ -1562,6 +1563,8 @@ static void track_reset(seq_t *s, int t)
     tr->age = 0;
     for (k = 0; k < NSC; k++)
         tr->act[k] = 0;
+    if (t < NTRK)
+        gen_load(s, t, 1);                     /* a generator starts again (TURING from the pattern's steps) */
 }
 
 static void restart(seq_t *s, uint32_t tracks)   /* tracks whose pattern switched: from step 1 */
@@ -1578,6 +1581,101 @@ static void restart(seq_t *s, uint32_t tracks)   /* tracks whose pattern switche
         s->bar_six = 0;
         s->bar_fresh = 1;
     }
+}
+
+/* ------------------------------------------------------------- generators --- */
+/* A track with a generator (pattern.h LANE_GEN: the mode and three settings, per pattern) plays a live shadow of
+ * its steps (seq.h gen_s), not the stored ones; the stored pattern stays as it was until COMMIT writes the shadow
+ * in. A hit with notes of its own in the pattern plays them; one without plays the track's root (the first note
+ * the pattern holds, else 60). The tricks, chance and nudge of the stored step stay too.
+ *   EUCLID  length (1..64), hits, rotate: the hits spread evenly over the length, rotated; the cycle repeats
+ *           from step 1 of every pass. A pure function of the settings
+ *   TURING  a shift register of length (2..16) bits, the classic looping random-sequence idea: each step it
+ *           turns one place round, and the bit that wraps from one end to the other is inverted at a chance the
+ *           lock sets (127: never, so the loop repeats exactly every length steps; falling to 0: a coin toss, the
+ *           chance rising with the square of the turn, so the last stretch before 127 is the fine one). The
+ *           register's top seven bits are the step's value: it plays when that is within the density (0: never,
+ *           127: every step), at a velocity from the register's low four bits. It starts from the pattern's own
+ *           steps */
+static int gen_ok(const seq_t *s, int t) { return t >= 0 && t < NTRK && !is_drum(s, t); }
+static void gen_euclid(seq_t *s, int t)
+{
+    const uint8_t *g = s->gen_p[t];
+    int n = g[1] < 1 ? 1 : g[1] > NSTEP ? NSTEP : g[1], h = g[2] > n ? n : g[2], r = g[3] % n, i;
+    for (i = 0; i < NSTEP; i++) {
+        int k = (i % n + n - r) % n;
+        s->gen_s[t][i] = h && (k * h) % n < h ? 0x80u | 100u : 0u;
+    }
+}
+static void gen_turing_seed(seq_t *s, int t)       /* the register and the shadow from the stored pattern */
+{
+    const tpat_t *tp = tpat(s, t);
+    int n = s->gen_p[t][1] < 2 ? 2 : s->gen_p[t][1] > 16 ? 16 : s->gen_p[t][1], i, len = pat_len(tp);
+    uint32_t reg = 0;
+    for (i = 0; i < n; i++)
+        reg |= (uint32_t)(i < len && !step_empty(&tp->st[i])) << i;
+    if (!reg)
+        reg = (st_hash(0x7E57u ^ (uint32_t)(t + 1) * 0x9E3779B9u) & ((1u << n) - 1u)) | 1u;
+    s->gen_reg[t] = (uint16_t)reg;
+    for (i = 0; i < NSTEP; i++) {
+        int v = tp->st[i].vel > 127 ? 127 : tp->st[i].vel ? tp->st[i].vel : 100;
+        s->gen_s[t][i] = i < len && !step_empty(&tp->st[i]) ? (uint8_t)(0x80u | (unsigned)v) : 0u;
+    }
+}
+static void gen_load(seq_t *s, int t, int again)   /* track t's lane settings and its shadow (again: from the pattern) */
+{
+    int pat = s->ppat[t] < NPATT ? s->ppat[t] : 0, was = s->gen_p[t][0], k;
+    uint8_t g[4] = {0, 0, 0, 0};
+    if (gen_ok(s, t))
+        lane_gen_get(s->P->lane, t, pat, g);
+    again |= g[0] != was || pat != s->gen_pat[t];
+    s->gen_pat[t] = (uint8_t)pat;
+    for (k = 0; k < 4; k++)
+        s->gen_p[t][k] = g[k];
+    if (g[0] == GEN_EUCLID)
+        gen_euclid(s, t);
+    else if (g[0] == GEN_TURING && again)
+        gen_turing_seed(s, t);
+}
+static void gen_refresh(seq_t *s)      /* the lanes' settings and the shadows, once a seq_advance call */
+{
+    uint32_t dirty = s->gen_dirty;
+    int t;
+    s->gen_dirty = 0;
+    for (t = 0; t < NTRK; t++)
+        if ((dirty >> t & 1u) || (s->ppat[t] < NPATT ? s->ppat[t] : 0) != s->gen_pat[t] || s->gen_ep != lane_epoch)
+            gen_load(s, t, 0);
+    s->gen_ep = lane_epoch;
+}
+static void gen_turing_step(seq_t *s, int t, int p)   /* step p of a TURING track starts: the register decides it */
+{
+    const uint8_t *g = s->gen_p[t];
+    int n = g[1] < 2 ? 2 : g[1] > 16 ? 16 : g[1], lock = g[2] > 127 ? 127 : g[2], d = g[3] > 127 ? 127 : g[3];
+    uint32_t reg = s->gen_reg[t] & ((1u << n) - 1u), wrap = reg & 1u, u = (uint32_t)(127 - lock), v;
+    if ((rng_next(&s->t[t].rng) >> 8 & 0xFFFFu) < u * u * 32768u / 16129u)   /* (u = 127: half) */
+        wrap ^= 1u;
+    reg = reg >> 1 | wrap << (n - 1);
+    s->gen_reg[t] = (uint16_t)reg;
+    v = n >= 7 ? reg >> (n - 7) : reg << (7 - n);         /* the top seven bits, 0..127 */
+    s->gen_s[t][p] = d && v <= (uint32_t)d ? (uint8_t)(0x80u | (56u + 4u * (reg & 15u))) : 0u;
+}
+/* the step a generator track plays at p: the stored one (its tricks, notes) with the shadow's velocity, or the
+ * root for a hit that has no notes; no notes when the shadow has no hit */
+static const step_t *gen_step(const seq_t *s, int t, const tpat_t *tp, int p, const step_t *st, step_t *out)
+{
+    uint8_t v = s->gen_s[t][p];
+    int i;
+    *out = *st;
+    if (!(v & 0x80u)) {
+        for (i = 0; i < SN; i++)
+            out->note[i] = 0;
+        return out;
+    }
+    out->vel = (uint8_t)(v & 0x7Fu ? v & 0x7Fu : 1u);
+    if (step_empty(st)) {
+        step_root(tp, out->note);
+    }
+    return out;
 }
 
 /* ------------------------------------------------------------- a step --- */
@@ -1888,9 +1986,10 @@ static void fire_step(seq_t *s, int t, const seq_sink_t *o)
     seq_trk_t *tr = &s->t[t];
     const tpat_t *tp;
     const step_t *st;
+    step_t gst;                       /* a generator track's step (gen_step) */
     uint32_t L, carry = tr->to_next < SEQ_DUE ? tr->to_next : 0, nL;
     int p, wrapped = 0, retrig = 1, happens = 0, plays, np, dummy, trig_ok = 1, lock_ok = 1, kind, cover = 0, rep = 0,
-        lp, drum = t < NTRK && is_drum(s, t), rnd = rand_track(s, t);
+        lp, drum = t < NTRK && is_drum(s, t), rnd = rand_track(s, t), gen = t < NTRK && s->gen_p[t][0] != GEN_OFF && !drum;
     int32_t off, noff;
     if (!tr->started) {
         tr->started = 1;
@@ -1939,6 +2038,11 @@ static void fire_step(seq_t *s, int t, const seq_sink_t *o)
     tr->ratchets = 1;
     tr->flam_gap = 0;
     tr->sub_to_next = NEVER;
+    if (gen) {                        /* the shadow decides the step (TURING: as it starts) */
+        if (!cover && s->gen_p[t][0] == GEN_TURING)
+            gen_turing_step(s, t, p);
+        st = gen_step(s, t, tp, lp, st, &gst);
+    }
     if (drum) {
         SQ_T(qc);
         kit_step(s, t, st, p, L, carry, o);
@@ -1964,7 +2068,7 @@ static void fire_step(seq_t *s, int t, const seq_sink_t *o)
     if (retrig && trig_ok)
         happens = cond_plays(s, t, st->cond);
     plays = happens && !(s->mute >> t & 1u) && !punch_muted(s, t) && !tr->fill_on &&
-            (rnd ? step_slot_on(tp, cover ? lp : p) : !step_empty(st));
+            (gen ? (s->gen_s[t][lp] & 0x80u) != 0 : rnd ? step_slot_on(tp, cover ? lp : p) : !step_empty(st));
     if (happens && !plays && !drum && t == brain_src(s))
         brain_set_near_notes(s, st->note, SN);   /* (a FOLLOW track muted still sets the chords) */
     if (happens && !rep && tr->act[SC_JUMP])
@@ -3368,6 +3472,8 @@ void seq_init(seq_t *s, patterns_t *P, uint8_t (*par)[NTP_ALL])
         tr->st_pool_lane = 0xFF;
         tr->jump_to = 0xFF;
         tr->bq_go = 0xFF;
+        if (t < NTRK)
+            s->gen_pat[t] = 0xFF;
         s->ppat[t] = P->scene[0].pat[t] < NPATT ? P->scene[0].pat[t] : 0;
         s->pcue[t] = 0xFF;
         s->wv_rec_at[t] = 0xFF;
@@ -3466,6 +3572,7 @@ void seq_advance(seq_t *s, uint32_t k, const seq_sink_t *o)
         }
     }
     brain_follow_par(s);
+    gen_refresh(s);
     if (s->req_stop) {
         s->req_stop = 0;
         s->req_start = s->req_cont = 0;

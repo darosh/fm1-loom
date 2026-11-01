@@ -99,11 +99,11 @@ static uint16_t col_mix(uint16_t a, uint16_t b, uint32_t s)   /* a moved s/16 of
  * track: Engine, Play, Play 2 (the octave), then Sub where the engine has a second page of knobs (TP_X1..X4: knit's
  * oscillator 2, level, sub, noise; rayon's fall); a kit or an FX track Engine and Play; the conductor Engine, Play (routing), Sub (Follow) */
 enum { P_ARRANGE, P_SONG, P_STEPS, P_BAR, P_ENGINE, P_PLAY, P_PLAY2, P_SUB, P_ENV, P_FILTER, P_ENV2, P_KITF, P_CHARACTER, P_SENDS,
-       P_FX1, P_FX2, P_THROWS, P_LFO, P_LFO2, P_PLAYERS, P_PLAYERS2, P_PLAYERS3, P_WEAVE, P_MIX, P_MASTER, P_MASTER2, P_MASTER3, P_GLFO, P_SETUP,
+       P_FX1, P_FX2, P_THROWS, P_LFO, P_LFO2, P_PLAYERS, P_PLAYERS2, P_PLAYERS3, P_WEAVE, P_GEN, P_MIX, P_MASTER, P_MASTER2, P_MASTER3, P_GLFO, P_SETUP,
        P_STATUS, NPAGES };
 static const char *const PAGE_NAME[NPAGES] = {"Arrange", "Song", "Steps", "Bar", "Engine", "Play", "Play 2", "Sub", "Envelope",
                                               "Filter", "Filter env", "Kit filter", "Character", "Sends", "FX I",
-                                              "FX II", "Throws", "LFO", "LFO 2", "Players", "Players 2", "Hold", "Weave", "Mix",
+                                              "FX II", "Throws", "LFO", "LFO 2", "Players", "Players 2", "Hold", "Weave", "Generator", "Mix",
                                               "Master EQ", "Master color", "Master out", "LFO", "Setup", "Debug"};
 static char *s_cat(char *b, const char *s);
 static char *num_s(uint32_t v, char *b);
@@ -134,7 +134,7 @@ static uint32_t glfo_route(void)                 /* the tracks it moves: bit t *
 static int mst_base(int p) { return p == P_MASTER ? MS_EQ_LO : p == P_MASTER2 ? MS_CTYPE : MS_PERC; }   /* its first knob */
 static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
     {B_HOME, P_ARRANGE, 2}, {B_SEQ, P_STEPS, 2}, {B_EDIT, P_ENGINE, 4}, {B_ENV, P_ENV, 4}, {B_FX, P_CHARACTER, 5},
-    {B_LFO, P_LFO, 2}, {B_ARP, P_PLAYERS, 4}, {B_GLO, P_MIX, 7}};
+    {B_LFO, P_LFO, 2}, {B_ARP, P_PLAYERS, 5}, {B_GLO, P_MIX, 7}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 static int page_group(int p)
 {
@@ -284,7 +284,7 @@ enum { A_CLEAR_NOTES, A_CLEAR_LOCKS, A_CLEAR_BOTH, A_COPY_PAT, A_PASTE_PAT, A_RO
        A_KIT, A_SAVE_KIT, A_MIDI_CC, A_USB_HOST, A_BT_MIDI, A_BT_AUDIO, A_BT_ADEV, A_BT_DEVICE, A_BT_DEV, A_BT_LOOK,
        A_BT_FORGET, A_BT_DISCONNECT, A_CLEAR, A_ROTATE, A_PASTE, A_COPY_EMPTY, A_CLEAR_BAR,
        A_COPY_SOUND, A_PASTE_SOUND, A_COPY_KEY, A_PASTE_KEY, A_COPY_SCENE, A_PASTE_SCENE, A_DUP_SLOT, A_KIT_FILTER,
-       A_SHIFT, A_LARGE_TYPE, NACTIONS };
+       A_SHIFT, A_LARGE_TYPE, A_GEN_COMMIT, NACTIONS };
 static const char *const ACTION_NAME[NACTIONS] = {
     "CLEAR NOTES", "CLEAR LOCKS", "CLEAR NOTES AND LOCKS", "COPY PATTERN", "PASTE PATTERN", "ROTATE FORWARD",
     "ROTATE BACK", "DUPLICATE BAR", "ENGINE", "PRESET", "SCRAMBLE", "SAVE AS PRESET", "RESET SOUND", "FOLLOWS CONDUCTOR",
@@ -295,7 +295,7 @@ static const char *const ACTION_NAME[NACTIONS] = {
     "PASTE LOCKS ONLY", "DOUBLE PATTERN", "CLEAR LOCKS", "CC OUT", "SCENES OUT", "KIT", "SAVE KIT", "KNOB CC",
     "USB PORT", "BT MIDI", "BT AUDIO", "AUDIO DEVICE", "MIDI DEVICE", "DEVICE", "LOOK AGAIN", "FORGET", "DISCONNECT",
     "CLEAR", "ROTATE", "PASTE", "COPY TO EMPTY", "CLEAR BAR", "COPY SOUND", "PASTE SOUND", "COPY DRUM", "PASTE DRUM",
-    "COPY SCENE", "PASTE SCENE", "DUPLICATE SLOT", "KIT FILTER", "SHIFT NOTES", "LARGE TYPE"};
+    "COPY SCENE", "PASTE SCENE", "DUPLICATE SLOT", "KIT FILTER", "SHIFT NOTES", "LARGE TYPE", "COMMIT GENERATOR"};
 static const char *const CLEAR_WHAT[3] = {"notes", "locks", "notes and locks"};
 /* a pick ALGORITHM sets at once (a setting: SEL only leaves the list), as against a choice SEL then carries out */
 static int pick_sets(int a)
@@ -328,7 +328,7 @@ static struct {
 /* the undo: one stage, whatever was changed last (HOME + REC swaps it back, HOME + PLAY swaps again: redo): a
  * pattern with its locks, a track's sound (or T2-T8 at once), the master, or the arrangement (song, scenes, weave) */
 enum { U_PAT, U_SOUND, U_MASTER, U_ARR };
-#define UNDO_LANES 13                     /* (a pattern's 12 locks and its random pool) */
+#define UNDO_LANES 14                     /* (a pattern's 12 locks, its random pool and its generator) */
 static struct {
     uint8_t valid, redo, kind, trk, n, pt, nl, rsv;
     uint32_t t;
@@ -694,8 +694,9 @@ static int group_n(int g)
                                           * key's model has eight knobs) */
     if (b == B_ARP)                                  /* (grp_page: Players, Players 2, Hold the arp's, Weave) */
         return is_aux(trk) ? 1
-             : is_drum(trk) || pl_type(trk) == PL_OFF ? 2
-             : pl_type(trk) == PL_ARP || pl_type(trk) == PL_RAND ? 4 : 3;
+             : is_drum(trk) ? 2
+             : pl_type(trk) == PL_OFF ? 3
+             : pl_type(trk) == PL_ARP || pl_type(trk) == PL_RAND ? 5 : 4;   /* (Generator last, but a kit's) */
     if (b == B_ENV)
         return is_drum(trk) ? 4 : is_midi(trk) ? 1 : is_acid(trk) ? 2 : 3;   /* a kit: the key's envelope, filter; the
                                                            * kit's envelope, filter (a MIDI track: none, page_button
@@ -731,14 +732,17 @@ static int grp_page(int g, int i)
     if (PAGE_BTN[g].btn == B_FX && is_midi(sel_trk()))
         return P_FX1 + i % 3;                        /* (a MIDI track: no sound for Character or Sends) */
     if (PAGE_BTN[g].btn == B_ARP) {
-        static const uint8_t ARPP[4] = {P_PLAYERS, P_PLAYERS2, P_PLAYERS3, P_WEAVE};
-        static const uint8_t OTHER[3] = {P_PLAYERS, P_PLAYERS2, P_WEAVE};
+        static const uint8_t ARPP[5] = {P_PLAYERS, P_PLAYERS2, P_PLAYERS3, P_WEAVE, P_GEN};
+        static const uint8_t OTHER[4] = {P_PLAYERS, P_PLAYERS2, P_WEAVE, P_GEN};
+        static const uint8_t NOPL[3] = {P_PLAYERS, P_WEAVE, P_GEN};
         int trk = sel_trk();
         if (is_aux(trk))
             return P_WEAVE;
-        if (is_drum(trk) || pl_type(trk) == PL_OFF)
-            return i & 1 ? P_WEAVE : P_PLAYERS;      /* (a kit, or no player: its page shows it off, then Weave) */
-        return pl_type(trk) == PL_ARP || pl_type(trk) == PL_RAND ? ARPP[i & 3] : OTHER[(i % 3 + 3) % 3];
+        if (is_drum(trk))
+            return i & 1 ? P_WEAVE : P_PLAYERS;      /* (a kit: its page shows it off, then Weave) */
+        if (pl_type(trk) == PL_OFF)
+            return NOPL[(i % 3 + 3) % 3];            /* (no player: Players shows it off, then Weave, Generator) */
+        return pl_type(trk) == PL_ARP || pl_type(trk) == PL_RAND ? ARPP[(i % 5 + 5) % 5] : OTHER[(i % 4 + 4) % 4];
     }
     return PAGE_BTN[g].first + i;
 }
@@ -763,8 +767,8 @@ static int tp_page_param(int p, int k, int trk)
         {TP_E1, TP_E2, TP_E3, TP_E4}, {TP_E1, TP_E2, TP_E3, TP_E4}, {-1, -1, -1, -1},
         {TP_LTYPE, TP_LSPEED, TP_LAMT, TP_LDEST},
         {TP_LX, TP_LX2, -1, -1}, {TP_PLAYER, TP_P1, TP_P2, TP_P3}, {TP_AP1, TP_AP2, TP_AP3, TP_AP4},
-        {TP_P4, -1, -1, -1}, {-1, -1, -1, -1}, {TP_SEND1, TP_SEND2, TP_PAN, TP_LEVEL}};
-    if (p < P_ENGINE || p > P_MIX || p == P_THROWS || p == P_WEAVE || k < 0 || k > 3)
+        {TP_P4, -1, -1, -1}, {-1, -1, -1, -1}, {-1, -1, -1, -1}, {TP_SEND1, TP_SEND2, TP_PAN, TP_LEVEL}};
+    if (p < P_ENGINE || p > P_MIX || p == P_THROWS || p == P_WEAVE || p == P_GEN || k < 0 || k > 3)
         return -1;
     if (fx_page(p))                                  /* (the effect tracks' own knobs, whatever trk is) */
         return M[p - P_ENGINE][k];
@@ -992,7 +996,7 @@ static void draw_header(void)
     if (ask)
         h = hash_s(h, ui.ask_q);
     meters_take();
-    if (((ui.page >= P_STEPS && ui.page <= P_PLAYERS3) || ui.page == P_WEAVE) && ui.page != P_THROWS)
+    if (((ui.page >= P_STEPS && ui.page <= P_PLAYERS3) || ui.page == P_WEAVE || ui.page == P_GEN) && ui.page != P_THROWS)
         mh = hdr_meter(page_trk(ui.page));
     h = hash_u(h, (uint32_t)mh);
     if (h == ui.sig[0])
@@ -1071,7 +1075,7 @@ static void draw_header(void)
         const char *bn = BTN_LABEL[PAGE_BTN[page_group(ui.page)].btn];
         const char *pn = lst.open && lst.bt ? (lst.bt == 1 ? "Audio devices" : "MIDI devices") : page_name_of(ui.page, sel_trk());
         int32_t w = text_w(&FONT_XS, bn) + 6;
-        if (((ui.page >= P_STEPS && ui.page <= P_PLAYERS3) || ui.page == P_WEAVE) && ui.page != P_THROWS) {   /* a track's page */
+        if (((ui.page >= P_STEPS && ui.page <= P_PLAYERS3) || ui.page == P_WEAVE || ui.page == P_GEN) && ui.page != P_THROWS) {   /* a track's page */
             int pt = page_trk(ui.page);
             const char *tn = TRACK_NAME[pt];
             int32_t tw = text_w(&FONT_XS, tn) + 10;
@@ -1715,6 +1719,27 @@ static void page_knobs(knob_t *k)
         }
         break;
     }
+    case P_GEN: {                                    /* the track's generator (per pattern): the mode and its three settings */
+        static const char *const GN[NGEN] = {"off", "euclid", "turing"};
+        static char v[3][8];
+        uint8_t g[4];
+        if (is_aux(trk) || is_drum(trk))
+            break;
+        lane_gen_get(pats.lane, trk, cur_pat(trk), g);
+        kname(&k[0], "MODE", GN, g[0], NGEN);
+        for (int i = 0; i < 3; i++)
+            num_s(g[i + 1], v[i]);
+        if (g[0] == GEN_EUCLID) {
+            kv(&k[1], "LENGTH", v[0], g[1], NSTEP);
+            kv(&k[2], "HITS", v[1], g[2], NSTEP);
+            kv(&k[3], "ROTATE", v[2], g[3], NSTEP - 1);
+        } else if (g[0] == GEN_TURING) {
+            kv(&k[1], "LENGTH", v[0], g[1], 16);
+            kv(&k[2], "LOCK", v[1], g[2], 127);
+            kv(&k[3], "DENSITY", v[2], g[3], 127);
+        }
+        break;
+    }
     case P_THROWS: {
         static const char *const LATCH[2] = {"off", "on"};
         kname(&k[0], "LATCH", LATCH, proj.trk[AUX_PUNCH].par[TP_E1] & 1u, 2);
@@ -2198,6 +2223,9 @@ static void page_footer(char *t)
     case P_WEAVE:
         s_cat(t, "BLACK the track woven in|WHITE its pattern");
         break;
+    case P_GEN:
+        s_cat(t, seq_gen_mode(&seq, trk) ? "SEL commit|KEYS play" : "KEYS play");
+        break;
     case P_MASTER3:
         s_cat(t, "SEL pump by, level|KEYS play");
         break;
@@ -2527,7 +2555,7 @@ static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; 
     {B_FX, PG_ANY, "Effects", "Character, sends, FX I, FX II, then Throws: keys fire effects.",
      "PRESETS: the type or effect. SEL: an FX's filter."},
     {B_LFO, PG_ANY, "LFO", "Type, then its first three knobs.", "Page 2 has the type's fourth and fifth."},
-    {B_ARP, PG_ANY, "Players", "Arp, strum, hold or random; last page, Weave.",
+    {B_ARP, PG_ANY, "Players", "Arp, strum, hold or random; then Weave and Generator.",
      "Random: tap steps as active slots; SEQ picks the pool."},
     {B_ARP, PG_STEPS, "Tricks", "With a step held, ARP: KNOB 1 and 3 pick its two tricks,",
      "KNOB 2 and 4 their values. Let go of the step when done."},
@@ -3006,6 +3034,9 @@ static void list_build(void)
     } else if (steps_page(keep)) {
         if (is_seqt(trk))
             list_steps(trk);
+    } else if (keep == P_GEN) {
+        if (seq_gen_mode(&seq, trk))
+            list_add(ACTION_NAME[A_GEN_COMMIT], 0, LK_ACTION, A_GEN_COMMIT);
     } else if (keep == P_WEAVE) {
         if (wv_from(trk)) {
             int to = pat_first_empty(trk);
@@ -3474,6 +3505,13 @@ static void cell_note(int n, char *b)               /* a note's name in a cell; 
 /* how many steps a step's note covers (its length, rounded up; the pattern's note length is under a step) */
 static int step_cover(const step_t *st) { return st->len ? (step_len_q(st->len) + 3) / 4 : 1; }
 /* WEAVE's Steps: the bar of its pattern, each step the tracks it weaves (names; more: "+n") and how long (the bar) */
+static uint32_t hash_gen(uint32_t h, int trk)          /* a generator track's shadow (the cells repaint as it changes) */
+{
+    for (int i = 0; i < NSTEP; i += 4)
+        h = hash_u(h, (uint32_t)seq.gen_s[trk][i] | (uint32_t)seq.gen_s[trk][i + 1] << 8 | (uint32_t)seq.gen_s[trk][i + 2] << 16 |
+                          (uint32_t)seq.gen_s[trk][i + 3] << 24);
+    return hash_u(h, (uint32_t)seq.gen_p[trk][0]);
+}
 static void draw_weave_steps(void)
 {
     const wvpat_t *wp = &pats.weave[pats.scene[cur_scene()].weave % NPATT];
@@ -3566,7 +3604,7 @@ static void draw_steps_as(void)
         return;
     }
     {
-    int trk = sel_trk(), drum = is_drum(trk), pt = cur_pat(trk), ph = eng_step[trk];
+    int trk = sel_trk(), drum = is_drum(trk), pt = cur_pat(trk), ph = eng_step[trk], gen = seq_gen_mode(&seq, trk) != 0;
     const tpat_t *tp = tpat(trk);
     uint32_t h = hash_u(hash_u(2166136261u, 0x57u), (uint32_t)trk | (uint32_t)pt << 4 | (uint32_t)ui.bar << 8 |
                                           (uint32_t)ui.held << 10 | (uint32_t)ui.dsound << 26);
@@ -3575,6 +3613,8 @@ static void draw_steps_as(void)
                       (uint32_t)ui.lockpg << 24 | (uint32_t)(seq.rec_wait != 0) << 30);
     h = hash_u(h, ui.trickpg | (uint32_t)ui.rem_fx << 16 | (uint32_t)(ui.frame / 8 & 1u) << 31);
     h = hash_pat(h, tp);
+    if (gen)
+        h = hash_gen(h, trk);
     h = hash_s(hash_u(h, proj.trk[trk].par[TP_ENGINE]), proj.trk[trk].name);   /* the sound's name, shown */
     for (int i = 0; i < 4; i++)
         h = hash_u(h, ui.rem[i]);
@@ -3616,11 +3656,19 @@ static void draw_steps_as(void)
     for (int i = 0; i < 16; i++) {
         int s = ui.bar * 16 + i, in = s < tp->len, held = ui.held >> i & 1u, on, implicit;
         const step_t *st = &tp->st[s];
+        step_t gst;
+        int live = 0;
         int32_t x = ST_X + (i % 8) * ST_CW, y = ST_Y + (i / 8) * (ST_CH + 4);
         uint16_t bg, fg;
         hit_t hm;
-        on = in && (pl_type(trk) == PL_RAND ? step_slot_on(tp, s) : step_on(st, trk));
-        implicit = on && pl_type(trk) == PL_RAND && !step_slot_set(tp, s);   /* none set: all on, shown plain */
+        if (gen && in && seq_gen_vel(&seq, trk, s) && step_empty(st)) {   /* a generated hit: the root, as it plays */
+            gst = *st;
+            step_root(tp, gst.note);
+            st = &gst;
+            live = 1;
+        }
+        on = in && (gen ? seq_gen_vel(&seq, trk, s) > 0 : pl_type(trk) == PL_RAND ? step_slot_on(tp, s) : step_on(st, trk));
+        implicit = on && !gen && pl_type(trk) == PL_RAND && !step_slot_set(tp, s);   /* none set: all on, shown plain */
         bg = !in ? K_BG : on && !implicit ? K_TINT : K_PANEL;
         if (playing() && s == ph && in)
             bg = on ? K_NOW : K_NOW_T;
@@ -3736,8 +3784,15 @@ static void draw_steps_as(void)
             ga_text("%", x + 3, y + ST_MK + 4 + cv_oy, x + 7, y + ST_MK + 10 + cv_oy, 0);   /* audited as a label */
 #endif
         }
+        if (live) {                                  /* a live hit (the generator's, not the pattern's): a four-pointed star */
+            static const uint8_t STAR[7] = {0x08, 0x08, 0x1C, 0x7F, 0x1C, 0x08, 0x08};
+            for (int r = 0; r < 7; r++)
+                for (int b = 0; b < 7; b++)
+                    if (STAR[r] >> (6 - b) & 1u)
+                        cv_rect(x + ST_CW - 11 + b, y + 2 + r, 1, 1, bg == K_NOW ? K_BG : K_NOW);
+        }
         if (step_has_lock(pats.lane, trk, pt, s))
-            cv_round(x + ST_CW - 9, y + 3, 4, 4, 2, K_REC);
+            cv_round(x + ST_CW - 9, y + (live ? 11 : 3), 4, 4, 2, K_REC);
     }
     {   /* lengths: a bar from a step across the steps its note covers, past the bar and round from the pattern's end
          * to its start; an arrow where it goes on onto another bar (or round), one in where it came from one */
@@ -5798,6 +5853,50 @@ static void weave_row(int32_t y, const char *label, uint16_t lc, const tpat_t *p
             cv_rect(x + 4, y + 9, 1, 2, K_LINE);     /* (the beats, where nothing is) */
     }
 }
+static void draw_gen(void)                           /* the generator page: the live shadow, the four bars at once */
+{
+    int trk = sel_trk(), pt = cur_pat(trk), ph = eng_step[trk], mode = seq_gen_mode(&seq, trk);
+    const tpat_t *tp = tpat(trk);
+    uint8_t rn[SN];
+    uint32_t h = hash_u(hash_u(2166136261u, 0x47u), (uint32_t)trk | (uint32_t)pt << 4 | (uint32_t)(playing() ? ph + 1 : 0) << 8 |
+                                          (uint32_t)tp->len << 16 | (uint32_t)(step_root(tp, rn) + 1) << 24);
+    char t[40], *e;
+    if (is_aux(trk) || is_drum(trk))
+        h = hash_u(h, 0xFEu);
+    else
+        h = hash_u(hash_gen(h, trk), (uint32_t)rn[0] | (uint32_t)rn[1] << 8 | (uint32_t)rn[2] << 16 | (uint32_t)rn[3] << 24);
+    if (!begin_main(h))
+        return;
+    if (is_aux(trk) || is_drum(trk)) {
+        text_c(120, 40, &FONT_B, "no generator here", K_TEXT);
+        text_c(120, 64, &FONT_S, "a melodic track's pattern", K_DIM);
+    } else if (!mode) {
+        text_c(120, 30, &FONT_B, "generator off", K_TEXT);
+        text_c(120, 54, &FONT_S, "KNOB 1: euclid or turing", K_DIM);
+        text_c(120, 72, &FONT_S, "it plays a live copy of the steps", K_DIM);
+    } else {
+        e = note_name(rn[0], s_cat(s_cat(s_cat(t, TRACK_NAME[trk]), mode == GEN_EUCLID ? " euclid" : " turing"), ", root "));
+        if (rn[1])                                   /* a chord: the lowest note and how many more */
+            num_s((uint32_t)(rn[2] ? rn[3] ? 3 : 2 : 1), s_cat(e, " +"));
+        cv_text(4, 0, &FONT_XS, t, K_TEXT);
+        for (int b = 0; b < NBAR; b++)
+            for (int i = 0; i < 16; i++) {
+                int s = b * 16 + i, in = s < tp->len, v = seq_gen_vel(&seq, trk, s);
+                int32_t x = 4 + i * 14, y = 16 + b * 26;
+                uint16_t bg = !in ? K_BG : v ? K_TINT : K_PANEL;
+                cv_round(x, y, 13, 22, 2, bg);
+                if (!in)
+                    cv_frame(x, y, 13, 22, 2, K_LINE, K_BG);
+                else if (playing() && s == ph)       /* the playhead: a frame (under the bar, which keeps its colour) */
+                    cv_frame(x, y, 13, 22, 2, K_TEXT, bg);
+                if (in && v) {                       /* the hit: a bright bar from the foot, as tall as its velocity */
+                    int32_t hh = 3 + v * 18 / 127;
+                    cv_round(x + 1, y + 22 - hh - 1, 11, hh, 1, K_NOW);
+                }
+            }
+    }
+    cv_blit(0, MAIN_Y);
+}
 static void draw_weave(void)
 {
     int trk = sel_trk(), f = wv_from(trk), r = wv_rule(trk);
@@ -5952,6 +6051,7 @@ static void draw_page(void)
     case P_MIX: draw_mix(); break;
     case P_THROWS: draw_punch(); break;
     case P_WEAVE: draw_weave(); break;
+    case P_GEN: draw_gen(); break;
     case P_MASTER: case P_MASTER3: draw_master(); break;
     case P_MASTER2: draw_master_color(); break;
     case P_GLFO: draw_glfo(); break;

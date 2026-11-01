@@ -238,6 +238,14 @@ typedef struct {
     volatile uint8_t song_on;         /* the song decides the scenes */
     volatile uint8_t song_pos, song_rep;
     volatile uint8_t ppat[NSEQT];     /* each track's pattern (the scene's, or cued per track) */
+    /* generators (pattern.h LANE_GEN; seq.c gen_*): a track with one plays a live shadow of its steps, which the
+     * stored pattern does not change until COMMIT. gen_s[t][step]: bit 7 = a hit, bits 0..6 its velocity; gen_p
+     * the settings last read from the lane (mode, 3 values); gen_reg TURING's shift register. The interrupt
+     * writes the shadow, the main loop (the grid, COMMIT) reads it */
+    uint8_t gen_s[NTRK][NSTEP];
+    uint8_t gen_p[NTRK][4], gen_pat[NTRK];
+    uint16_t gen_reg[NTRK], gen_ep;
+    volatile uint8_t gen_dirty;       /* bit t: the main loop changed track t's lane: read it again */
     volatile uint16_t mute;           /* bit t */
     volatile uint8_t ext, clock, send_notes;   /* clock: SEQ_CLK_* */
     volatile uint8_t metronome;       /* 0 off, 1 while recording, 2 on */
@@ -374,10 +382,18 @@ int seq_step_rec(seq_t *s, int trk, int step, int note, int vel);   /* step reco
                                                      * track's pattern (overdubs; the UI moves its cursor); 1 = written */
 int seq_step_add_notes(seq_t *s, int trk, int step, const uint8_t *notes, int n, int vel);   /* a step held + keys:
                                                      * each note toggled on the step; returns the notes it holds after */
+/* a generator track's shadow (the grid, the LEDs, COMMIT): the mode (GEN_*, 0 = none) and a step's velocity (0 = no hit) */
+static inline int seq_gen_mode(const seq_t *s, int t) { return t >= 0 && t < NTRK ? s->gen_p[t][0] : 0; }
+static inline int seq_gen_vel(const seq_t *s, int t, int step)
+{
+    return t >= 0 && t < NTRK && step >= 0 && step < NSTEP && (s->gen_s[t][step] & 0x80u) ? s->gen_s[t][step] & 0x7Fu : 0;
+}
 /* step helpers (main loop) */
 void step_set_notes(step_t *st, const uint8_t *notes, int n, int vel);
 void step_toggle_note(step_t *st, int note);
 int step_empty(const step_t *st);
+int step_root(const tpat_t *p, uint8_t n[SN]);   /* a generator's root: the notes of the first step that has any
+                                                  * (a chord is kept whole), else C4; returns that step, -1 none */
 /* a random track's active slots: the steps holding a note or a trick; when none is set, every step plays */
 static inline int step_slot_set(const tpat_t *p, int s)
 {

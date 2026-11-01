@@ -106,6 +106,8 @@ and turn **KNOB 4** (the pump) while it plays. Hold any button for a second and 
 - **Throw**: a momentary effect on the drums or the melodic tracks, played from a key on FX's Throws page.
 - **Weave**: one track's pattern crossed live with another: bars or steps taking turns, or one pattern's rhythm
   with the other's pitch. You set it up on the track's ARP pages and play it on the WEAVE track.
+- **Generator**: a mode on a track's ARP pages (euclid or turing) that makes the steps for you, live. It plays a
+  copy of the track's steps and leaves the pattern as it was until you commit it.
 - **Groove**: a timing and velocity feel. The project picks the type, and each track sets how much it gets.
 - **Pump**: the mix (everything but the drums) ducks on each kick and swells back (set on Master out). A track's
   pump LFO does the same to that one track.
@@ -143,7 +145,7 @@ press…" means keep **HOME** down while you press the next thing.
 | play one bar of a long pattern, or jump about in it | Press **SEQ** and turn **SELECT** to the Bar page. Hold **SEQ** and press black key 1 to 4 to jump to that bar. Hold two of them to loop those bars, or tap one twice to loop that bar. <!-- hint: hold SEQ; black 1,2,3,4 --> |
 | set the track scale | On Steps, turn **KNOB 3**. Or, on the Bar page of a synth track, press a black key: 1, 2, 3, 4, 5, 6, 8, 16 sixteenths a step, or black key 9 for half a sixteenth. <!-- hint: turn KNOB 3 --> |
 | change the pattern | On Steps, turn **KNOB 1**. While it plays, the new pattern comes in at the next bar line. Until then, the knob reads NEXT 1>2 and the tag line says "next P2". |
-| weave two patterns | On the track, press **ARP** and go to its last page, Weave. Press a black key for the track to weave in and a white key for its pattern; **KNOB 3** sets the rule. From then on, it plays woven. To bring it in by hand instead, set **KNOB 4** to "on WEAVE", then pick the WEAVE track with **ALGORITHM** and hold that track's white key. <!-- hint: press ARP; black 2; white 1; turn KNOB 3 --> |
+| weave two patterns | On the track, press **ARP** and go to its Weave page, after the Players pages. Press a black key for the track to weave in and a white key for its pattern; **KNOB 3** sets the rule. From then on, it plays woven. To bring it in by hand instead, set **KNOB 4** to "on WEAVE", then pick the WEAVE track with **ALGORITHM** and hold that track's white key. <!-- hint: press ARP; black 2; white 1; turn KNOB 3 --> |
 | change the sound | Press **EDIT** and turn **PRESETS** to step through the engine's own sounds. A name like "BASS 3/11" tells you what the sound is for and where you are in the list. **SEL** changes the engine. |
 | edit a drum sound | On a drum track, press **EDIT** and press the sound's black key. The knobs are the model's own four. Turn **SELECT** for the model, random, pan and volume. Its **SEL** list has the play mode. <!-- hint: press EDIT; black 1 --> |
 | shape one drum | On a drum track, press **ENV** and press the drum's black key to get its own attack, hold, decay and lag. Turn **SELECT** for its filter: **PRESETS** picks low-pass, high-pass or band-pass, and the knobs set cutoff, resonance, envelope and drive. <!-- hint: press ENV; black 1 --> |
@@ -429,7 +431,7 @@ A weave crosses what a track plays with another pattern, live, while the song pl
 up a weave on a track, and from then on that track plays woven (the other track plays as it was). Or you can keep
 the weave for the WEAVE track and bring it in by hand.
 
-**Set it up.** On a track, press **ARP** and turn **SELECT** to the last page, Weave. Press a black key to choose
+**Set it up.** On a track, press **ARP** and turn **SELECT** to the Weave page (the one before the last). Press a black key to choose
 the track to weave in: 1 to 8 are the tracks, 9 is COND and 10 is THROW, and pressing the same key again sets
 none. Then press a white key, 1 to 8, to choose its pattern. **KNOB 1** (WITH: the track), **KNOB 2** (PATTERN: its
 pattern) and **KNOB 3** (RULE) set the same things. The page spells it out in words ("T2 weaves with T1", "by
@@ -471,6 +473,34 @@ empty pattern so you can edit it like any other. Weaving a pattern with a shifte
 FORWARD, then weave it by steps) makes variations. A drum pattern's rhythm with a melody's notes makes a riff.
 
 <img src="img/screen-weave.png" width="240" alt="ARP's Weave page on T2: T2 weaves with T1, by rhythm: T2 P1's rhythm, T1 P1's pitch; rows for T2 P1's steps, T1 P1's, and what plays; on, it plays woven" title="A weave set up"> <img src="img/screen-woven.png" width="240" alt="The WEAVE track's page: ten boxes, T1 to T8, COND and THROW; T2's lit while its key is held, its weave T1 P1, rhythm" title="Weaving">
+
+### Generator
+
+A generator makes a track's steps for you while the song plays, and you see them on the grid as they change. It
+plays a live copy of the track's steps. The pattern itself stays as you wrote it until you press COMMIT. Each
+pattern has its own generator and settings, saved with the project. It works with every player: with random, the
+generator decides which steps play and the pitch pool picks their notes.
+
+**Set it up.** On a melodic track, press **ARP** and turn **SELECT** to the last page, Generator. **KNOB 1** picks
+the mode (off, euclid or turing), and **KNOBS 2 to 4** are that mode's settings. Choosing a mode sets sensible
+starting values. A hit on a step that has notes of its own plays them, with the generated velocity, and the step's
+tricks and chance still apply. A hit on an empty step plays the track's root: the notes of the first step that has
+any (a chord stays a chord), else C4. The Generator page's title shows it ("T2 euclid, root C4"), and the Steps
+page marks the live hits, the ones the generator makes rather than the pattern, with a small star in the cell's
+corner. To change the root, write a note or a chord on the first step you want it from, or clear the notes to go
+back to C4. A step with no hit is silent.
+
+| Mode | Knob 2 | Knob 3 | Knob 4 | What it does |
+|---|---|---|---|---|
+| euclid | length | hits | rotate | spreads that many hits as evenly as possible over that length, rotated. The cycle starts again at step 1 of every pass |
+| turing | length | lock | density | a looping shift register of 2 to 16 bits. Lock 127 repeats the loop exactly; lower, the bit that wraps round is flipped more and more often (0 is a coin toss). Density is how many steps play (0 none, 127 all); the velocity follows the register |
+
+Turing starts from the steps the pattern already has, so you can write a rhythm, turn it on and let it drift. The
+register starts again with the transport and when the pattern changes.
+
+**Keep it.** The **SEL** list on the Generator page has COMMIT GENERATOR, which writes the live copy into the
+pattern: a hit on an empty step gets the root note, a step with no hit loses its notes. Set the mode to off to
+let go of the generator and play the pattern as it is. COMMIT can be undone.
 
 ## Recording
 
@@ -1519,7 +1549,8 @@ On a sound page, hold **SAVE** and press white key 1 to 16 to keep the track's s
 | LFO, SELECT | LFO 2 | the type's fourth and fifth | | | | play |
 | ARP | Players | player | its first | its second | its third | play, through the player (random: Players 2 its randomization, Players 3 the octaves down and up) |
 | ARP, SELECT | Players 2, Hold | the arp's length, style, glide, stereo; hold | | | | play |
-| ARP, SELECT (last) | Weave | with | pattern | rule | plays | black: the track woven in, white: its pattern; SEL: KEEP AS PATTERN |
+| ARP, SELECT | Weave | with | pattern | rule | plays | black: the track woven in, white: its pattern; SEL: KEEP AS PATTERN |
+| ARP, SELECT (after Weave) | Generator | mode | length | hits or lock | rotate or density | SEL: COMMIT GENERATOR |
 | GLO | Mix | FX I | FX II | pan | level | black: tap to mute, hold to solo (several together) |
 | GLO, SELECT | Master EQ | low | mid | high | | |
 | GLO, SELECT | Master color | color | amount | tone | mix | |

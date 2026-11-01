@@ -1664,6 +1664,126 @@ static void t_step_players(void)      /* the arp and the strum play the steps' n
     printf("ok %s\n", cur);
 }
 
+static void gen_set(int trk, int mode, int a, int b, int c)   /* a track's generator, as the UI sets it */
+{
+    uint8_t g[4] = {(uint8_t)mode, (uint8_t)a, (uint8_t)b, (uint8_t)c};
+    CHECK(lane_gen_set(P.lane, trk, 0, g) == 0);
+    S.gen_dirty |= (uint8_t)(1u << trk);
+}
+
+static void t_generators(void)         /* EUCLID and TURING: a shadow of the steps, the pattern left as it was */
+{
+    uint8_t g[4];
+    cur = "generators";
+    reset();
+    P.pat[0][0].len = 16;
+    gen_set(0, GEN_EUCLID, 8, 3, 0);              /* 3 in 8: x..x..x. */
+    start();
+    run(15 * L16 + 100);
+    CHECK(count(E_ON, 0) == 6);                   /* twice round the 16 */
+    CHECK(on_n(0)->a == 60);                      /* no notes in the pattern: the root */
+    CHECK(seq_gen_vel(&S, 0, 0) && !seq_gen_vel(&S, 0, 1) && !seq_gen_vel(&S, 0, 2) && seq_gen_vel(&S, 0, 3));
+    CHECK(step_empty(st(0, 0)) && step_empty(st(0, 3)));   /* the stored pattern is untouched */
+    stop();
+    /* rotate by 1 moves the hits one step on; hits 0 is silent */
+    reset();
+    P.pat[0][0].len = 8;
+    gen_set(0, GEN_EUCLID, 8, 3, 1);
+    start();
+    run(7 * L16 + 100);
+    CHECK(count(E_ON, 0) == 3);
+    CHECK(seq_gen_vel(&S, 0, 1) && !seq_gen_vel(&S, 0, 0) && seq_gen_vel(&S, 0, 4) && seq_gen_vel(&S, 0, 7));
+    stop();
+    reset();
+    gen_set(0, GEN_EUCLID, 16, 0, 0);
+    start();
+    run(15 * L16 + 100);
+    CHECK(count(E_ON, 0) == 0);
+    stop();
+    /* a hit on a stored note plays that note; the lane is off with mode 0 */
+    reset();
+    P.pat[0][0].len = 8;
+    st(0, 0)->note[0] = 67;
+    st(0, 0)->vel = 90;
+    gen_set(0, GEN_EUCLID, 8, 1, 0);
+    start();
+    run(7 * L16 + 100);
+    CHECK(count(E_ON, 0) == 1 && on_n(0)->a == 67);
+    stop();
+    g[0] = GEN_OFF; g[1] = g[2] = g[3] = 0;
+    lane_gen_set(P.lane, 0, 0, g);
+    CHECK(lane_find(P.lane, 0, 0, LANE_GEN) < 0);
+    /* TURING, lock 127: the loop repeats exactly, every 4 steps; density 127 plays all */
+    reset();
+    P.pat[0][0].len = 16;
+    st(0, 0)->note[0] = 60;
+    st(0, 0)->vel = 100;
+    st(0, 2)->note[0] = 60;
+    st(0, 2)->vel = 100;
+    gen_set(0, GEN_TURING, 4, 127, 64);
+    start();
+    run(15 * L16 + 100);
+    for (int i = 0; i < 12; i++)
+        CHECK(seq_gen_vel(&S, 0, i) == seq_gen_vel(&S, 0, i + 4));
+    CHECK(step_empty(st(0, 1)));                  /* the pattern stays */
+    stop();
+    reset();
+    P.pat[0][0].len = 16;
+    gen_set(0, GEN_TURING, 8, 127, 127);
+    start();
+    run(15 * L16 + 100);
+    CHECK(count(E_ON, 0) == 16);
+    stop();
+    reset();
+    P.pat[0][0].len = 16;
+    gen_set(0, GEN_TURING, 8, 127, 0);
+    start();
+    run(15 * L16 + 100);
+    CHECK(count(E_ON, 0) == 0);
+    stop();
+    /* lock 0: the register is random, the loop moves */
+    reset();
+    P.pat[0][0].len = 64;
+    st(0, 0)->note[0] = 60;
+    st(0, 0)->vel = 100;
+    gen_set(0, GEN_TURING, 8, 0, 100);
+    start();
+    run(63 * L16 + 100);
+    {
+        int moved = 0;
+        for (int i = 0; i < 56; i++)
+            moved |= seq_gen_vel(&S, 0, i) != seq_gen_vel(&S, 0, i + 8);
+        CHECK(moved);
+    }
+    stop();
+    /* a chord on the first step is the root: every hit plays all of it */
+    reset();
+    P.pat[0][0].len = 8;
+    st(0, 0)->note[0] = 60;
+    st(0, 0)->note[1] = 64;
+    st(0, 0)->note[2] = 67;
+    st(0, 0)->vel = 100;
+    gen_set(0, GEN_EUCLID, 8, 2, 0);
+    start();
+    run(7 * L16 + 100);
+    CHECK(count(E_ON, 0) == 6);
+    stop();
+    /* with the random player: the generator decides the rhythm, the pool the pitch */
+    reset();
+    P.pat[0][0].len = 8;
+    par[0][TP_PLAYER] = PL_RAND;
+    par[0][TP_P1] = 127;
+    par[0][TP_P4] = 0;                            /* the step's own octave */
+    par[0][TP_AP2] = 8;
+    lane_pool_set(P.lane, 0, 0, 1u << 0);
+    gen_set(0, GEN_EUCLID, 8, 2, 0);
+    start();
+    run(7 * L16 + 100);
+    CHECK(count(E_ON, 0) == 2);
+    stop();
+    printf("ok %s\n", cur);
+}
+
 static void t_random_player(void)     /* the random player: the grid's active slots, the pool, the phrase knobs */
 {
     cur = "random-player";
@@ -3393,6 +3513,7 @@ int main(void)
     t_step_players();
     t_hold_player();
     t_random_player();
+    t_generators();
     t_punch_keys();
     t_duck();
     t_loops();

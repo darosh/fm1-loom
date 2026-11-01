@@ -1,0 +1,77 @@
+# generator: EUCLID and TURING play a live copy of the steps (the pattern stays as it was until COMMIT), settings per pattern in a lane
+wait 300
+turn ALGO 1
+expect trk 2
+tap ARP
+expect page Players
+turn SELECT 1
+expect page Weave
+turn SELECT 1
+expect page Generator
+shot generator_off.png
+# euclid: the mode, then its start values (the pattern's length 16, a quarter of it: 4 hits)
+turn K1 1
+expect gen 2 1 1 16 4 0
+# (the cycle repeats over the 64 steps: 4 hits in 16 is 16)
+wait 100
+expect genhits 2 16
+shot generator_euclid.png
+turn K2 -8
+expect gen 2 1 1 8 4 0
+wait 100
+expect genhits 2 32
+turn K3 -1
+turn K4 1
+expect gen 2 1 1 8 3 1
+shot generator_euclid_rotated.png
+# the live copy is not the pattern: a step's note stays empty until COMMIT
+expect note 2 1 1 0
+# the Steps page before the commit: the live hits carry a star (the pattern's own steps would not)
+tap SEQ
+wait 50
+shot generator_steps_live.png
+tap ARP
+turn SELECT 1
+turn SELECT 1
+expect page Generator
+# COMMIT GENERATOR (the SEL list): the hits are written into the pattern (the root C4), the steps without one stay empty
+tap SEL
+wait 50
+shot generator_list.png
+tap SEL
+wait 100
+expect note 2 1 2 60
+expect note 2 1 1 0
+shot generator_committed.png
+tap PLAY
+wait 1200
+shot generator_playing.png
+# after the commit the hits are the pattern's own steps (no star); the live ones are on the Steps page above
+tap SEQ
+shot generator_steps.png
+tap PLAY
+tap ARP
+turn SELECT 1
+turn SELECT 1
+expect page Generator
+# turing: 8 bits, lock 100, density 100; it starts from the pattern's own steps (none: a seeded register)
+turn K1 1
+expect gen 2 1 2 8 100 100
+wait 100
+tap PLAY
+wait 1500
+shot generator_turing.png
+tap PLAY
+# saved with the project, in the pattern's lane: no format change
+projsave 1
+reboot
+wait 400
+expect gen 2 1 2 8 100 100
+# off: the lane goes
+tap ARP
+turn SELECT 1
+turn SELECT 1
+expect page Generator
+turn K1 -1
+turn K1 -1
+expect gen 2 1 0 0 0 0

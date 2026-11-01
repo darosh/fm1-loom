@@ -640,6 +640,39 @@ static int expect_more(const char *what, const char *a, const char *b, const cha
             host_fails++;
         } else
             printf("  ok pool %s %s == 0x%03x\n", t, pt, got);
+    } else if (!strcmp(what, "gen")) {             /* expect gen T PAT MODE A B C: a pattern's generator (0 off, 1 euclid, 2 turing) */
+        char t[16], pt[16], v[4][16];
+        uint8_t g[4];
+        int want[4], n = sscanf(plat_host_line, "%*s %*s %15s %15s %15s %15s %15s %15s", t, pt, v[0], v[1], v[2], v[3]);
+        if (n < 3) {
+            printf("FAIL expect gen: T PAT MODE [A B C]\n");
+            host_fails++;
+            return 1;
+        }
+        lane_gen_get(pats.lane, atoi(t) - 1, atoi(pt) - 1, g);
+        for (int i = 0; i < 4; i++)
+            want[i] = i < n - 2 ? atoi(v[i]) : (int)g[i];
+        if (g[0] != want[0] || g[1] != want[1] || g[2] != want[2] || g[3] != want[3]) {
+            printf("FAIL expect gen %s %s: got %d %d %d %d, wanted %d %d %d %d\n", t, pt, g[0], g[1], g[2], g[3], want[0], want[1],
+                   want[2], want[3]);
+            host_fails++;
+        } else
+            printf("  ok gen %s %s == %d %d %d %d\n", t, pt, g[0], g[1], g[2], g[3]);
+    } else if (!strcmp(what, "genhits")) {         /* expect genhits T N: the hits of track T's live shadow, steps 1..64 */
+        char t[16], v[16];
+        int got = 0;
+        if (sscanf(plat_host_line, "%*s %*s %15s %15s", t, v) != 2) {
+            printf("FAIL expect genhits: T N\n");
+            host_fails++;
+            return 1;
+        }
+        for (int i = 0; i < NSTEP; i++)
+            got += seq_gen_vel(&seq, atoi(t) - 1, i) > 0;
+        if (got != atoi(v)) {
+            printf("FAIL expect genhits %s == %s, got %d\n", t, v, got);
+            host_fails++;
+        } else
+            printf("  ok genhits %s == %d\n", t, got);
     } else if (!strcmp(what, "lane")) {            /* expect lane T PAT PARAM N: the steps a lock / motion lane holds */
         char t[16] = {0}, pt[16] = {0}, pn[24] = {0}, nv[16] = {0};
         int ln, got = 0;

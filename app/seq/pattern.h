@@ -134,10 +134,15 @@ static inline int lane_is_step_note(unsigned param)   /* a lane of a step's note
     return param == LANE_TUNE || (param >= LANE_VEL0 && param < LANE_VEL0 + 32u);
 }
 static inline int lane_is_hit(unsigned param) { return param >= LANE_HIT0 && param < LANE_HIT0 + NDRUM; }
+/* a track's generator, per pattern: val[0] the mode (GEN_*), val[1..3] its three settings (one lane for the
+ * pattern, not a per-step lane; seq.c gen_*) */
+#define LANE_GEN 0xFFFCu
 static inline int lane_is_pool(unsigned param) { return param == LANE_POOL; }
+static inline int lane_is_gen(unsigned param) { return param == LANE_GEN; }
+static inline int lane_is_pat(unsigned param) { return param == LANE_POOL || param == LANE_GEN; }   /* a whole-pattern lane: no step positions */
 static inline int lane_is_note(unsigned param)   /* a lane of notes, not locks (project keeps these) */
 {
-    return lane_is_step_note(param) || lane_is_pool(param);
+    return lane_is_step_note(param) || lane_is_pat(param);
 }
 #define TUNE_0 64
 #define TUNE_MAX 24
@@ -233,6 +238,9 @@ const hit_t *step_hit(const patterns_t *P, int trk, int pat, int step, int sound
 uint16_t lane_pool_get(const lane_t *L, int trk, int pat);              /* a random pattern's pool mask, 0 none */
 int lane_pool_set(lane_t *L, int trk, int pat, uint16_t mask);          /* -1 = no lane free */
 void lane_pool_free(lane_t *L, int trk);
+enum { GEN_OFF, GEN_EUCLID, GEN_TURING, NGEN };                          /* a track's generator (LANE_GEN val[0]) */
+int lane_gen_get(const lane_t *L, int trk, int pat, uint8_t g[4]);     /* mode and its three settings; 0 = off (g zeroed) */
+int lane_gen_set(lane_t *L, int trk, int pat, const uint8_t g[4]);     /* mode 0 frees the lane; -1 = no lane free */
 extern volatile uint16_t lane_epoch;     /* bumped when a lane is allocated or freed (the ISR's pool cache) */
 void pattern_clear_locks(lane_t *L, int trk, int pat);   /* (not the kit tune lane: that is notes) */
 void cond_ab(int k, int *a, int *b);  /* COND_AB + k -> A:B */

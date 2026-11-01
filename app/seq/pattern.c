@@ -176,6 +176,31 @@ void lane_pool_free(lane_t *L, int trk)
             lane_clear(L, k);
 }
 
+int lane_gen_get(const lane_t *L, int trk, int pat, uint8_t g[4])
+{
+    int k = lane_find(L, trk, pat, LANE_GEN), i;
+    for (i = 0; i < 4; i++)
+        g[i] = k < 0 ? 0u : L[k].val[i] == LOCK_NONE ? 0u : L[k].val[i];
+    if (g[0] >= NGEN)
+        g[0] = GEN_OFF;
+    return g[0];
+}
+
+int lane_gen_set(lane_t *L, int trk, int pat, const uint8_t g[4])
+{
+    int k = lane_find(L, trk, pat, LANE_GEN), i;
+    if (g[0] == GEN_OFF) {            /* off: no lane at all */
+        if (k >= 0)
+            lane_clear(L, k);
+        return 0;
+    }
+    if (k < 0 && (k = lane_alloc(L, trk, pat, LANE_GEN)) < 0)
+        return -1;
+    for (i = 0; i < 4; i++)
+        L[k].val[i] = g[i];
+    return 0;
+}
+
 void step_clear_locks(lane_t *L, int trk, int pat, int step)
 {
     int k;
@@ -247,6 +272,21 @@ int step_empty(const step_t *st)
         if (st->note[i])
             return 0;
     return 1;
+}
+
+int step_root(const tpat_t *p, uint8_t n[SN])
+{
+    int i, k;
+    for (i = 0; i < NSTEP; i++)
+        if (!step_empty(&p->st[i]) && p->st[i].note[0]) {
+            for (k = 0; k < SN; k++)
+                n[k] = p->st[i].note[k];
+            return i;
+        }
+    n[0] = 60;
+    for (k = 1; k < SN; k++)
+        n[k] = 0;
+    return -1;
 }
 
 /* the kit's steps (seq.h): the interrupt reads note[0] and note[1] apart, so a change between them plays at
