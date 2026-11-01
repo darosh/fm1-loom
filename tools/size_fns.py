@@ -51,10 +51,11 @@ COLD = {
     "dsp/synth.c": ["tp_text_i", "tp_text_par", "tp_info_par", "tp_text", "char_picture",
                     "synth_note_off", "synth_duck_trigger", "synth_all_off",
                     "sound_default", "synth_init", "eknob_init", "voice_chunk", "voice_subblock", "synth_prepare"],
-    "seq/pattern.c": [],
+    "seq/pattern.c": ["step_gen_notes"],
     "seq/seq.c": ["fire_notes", "key_in", "seq_init", "bar_end", "do_start", "emit_drum", "rec_key_off",
                   "rec_key_on", "restart", "track_reset", "seq_rec_pos", "deg_to_note", "seq_cue_pattern",
-                  "arp_stop", "keys_all_off", "brain_note", "chord_snap", "chord_deg", "rand_pool", "rand_notes"],
+                  "arp_stop", "keys_all_off", "brain_note", "chord_snap", "chord_deg", "rand_pool", "rand_notes",
+                  "gen_mutate", "gen_seed_shadow"],
 }
 # the two FX slots' and the master's per-sample code, closed under calls (~18 KB; the 24 KB RAMTEXT region holds
 # .ram_text's ~3 KB and the second core's loop besides)

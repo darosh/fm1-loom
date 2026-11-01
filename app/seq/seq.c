@@ -1608,6 +1608,52 @@ static void gen_euclid(seq_t *s, int t)
         s->gen_s[t][i] = h && (k * h) % n < h ? 0x80u | 100u : 0u;
     }
 }
+static void gen_seed_shadow(seq_t *s, int t)       /* the shadow from the stored steps (a hit where one has notes) */
+{
+    const tpat_t *tp = tpat(s, t);
+    int i, len = pat_len(tp);
+    for (i = 0; i < NSTEP; i++) {
+        int v = tp->st[i].vel > 127 ? 127 : tp->st[i].vel ? tp->st[i].vel : 100;
+        s->gen_s[t][i] = i < len && !step_empty(&tp->st[i]) ? (uint8_t)(0x80u | (unsigned)v) : 0u;
+    }
+}
+/* MUTATE (the idea: a pattern that drifts, as a live player varies it): each pass of the pattern, each of up to
+ * EDITS (1..2, val[3]) edits happens at a chance of AMOUNT (val[1], 0..127; 127 always), unless FREEZE (val[2]) is
+ * on. An edit is one of: a step switched on (at 100) or off, a hit moved to the next free step either side, a hit's
+ * velocity drifted by up to 16. It works on the shadow only; a hit on an empty step plays the nearest earlier
+ * stored step's notes (step_gen_notes), so a moved hit keeps its pitch */
+static void gen_mutate(seq_t *s, int t)
+{
+    const uint8_t *g = s->gen_p[t];
+    uint8_t *gs = s->gen_s[t];
+    int n = pat_len(tpat(s, t)), edits = g[3] > 1 ? 2 : 1, e;
+    if (g[2] & 1u)
+        return;
+    for (e = 0; e < edits; e++) {
+        uint32_t r = rng_next(&s->t[t].rng), q = rng_next(&s->t[t].rng);
+        int i = (int)((q >> 8 & 0xFFFFu) % (uint32_t)n), kind = (int)((q >> 24) % 3u), c;
+        if ((int)(r >> 24 & 0x7Fu) >= g[1] && g[1] < 127)
+            continue;
+        if (kind == 0) {                              /* a step on or off */
+            gs[i] = gs[i] & 0x80u ? 0u : 0x80u | 100u;
+            continue;
+        }
+        for (c = 0; c < n && !(gs[i] & 0x80u); c++)   /* (the next hit on: none, no edit) */
+            i = (i + 1) % n;
+        if (!(gs[i] & 0x80u))
+            continue;
+        if (kind == 1) {                              /* a hit to a free neighbour */
+            int j = (i + (q >> 20 & 1u ? 1 : n - 1)) % n;
+            if (!(gs[j] & 0x80u)) {
+                gs[j] = gs[i];
+                gs[i] = 0;
+            }
+        } else {                                      /* its velocity */
+            int v = (int)(gs[i] & 0x7Fu) + (int)(q >> 16 & 31u) - 16;
+            gs[i] = (uint8_t)(0x80u | (unsigned)(v < 1 ? 1 : v > 127 ? 127 : v));
+        }
+    }
+}
 static void gen_turing_seed(seq_t *s, int t)       /* the register and the shadow from the stored pattern */
 {
     const tpat_t *tp = tpat(s, t);
@@ -1622,10 +1668,7 @@ static void gen_turing_seed(seq_t *s, int t)       /* the register and the shado
     }
     s->gen_reg[t] = reg;
     s->gen_ph[t] = (uint8_t)(n - 1);                  /* (the first step plays loop slot 0) */
-    for (i = 0; i < NSTEP; i++) {
-        int v = tp->st[i].vel > 127 ? 127 : tp->st[i].vel ? tp->st[i].vel : 100;
-        s->gen_s[t][i] = i < len && !step_empty(&tp->st[i]) ? (uint8_t)(0x80u | (unsigned)v) : 0u;
-    }
+    gen_seed_shadow(s, t);
 }
 /* TURING's length changed while it runs: the loop is kept as it sounds, slot by slot (slot j takes the old slot j mod
  * the old length: longer, the loop is repeated; shorter, cut), and the playhead stays on its slot. So the grid does not
@@ -1655,6 +1698,8 @@ static void gen_load(seq_t *s, int t, int again)   /* track t's lane settings an
         gen_euclid(s, t);
     else if (g[0] == GEN_TURING && again)
         gen_turing_seed(s, t);
+    else if (g[0] == GEN_MUTATE && again)
+        gen_seed_shadow(s, t);
     else if (g[0] == GEN_TURING && was == GEN_TURING && was_n != g[1]) {
         int a = was_n < 2 ? 2 : was_n > 64 ? 64 : was_n, b = g[1] < 2 ? 2 : g[1] > 64 ? 64 : g[1];
         if (a != b)
@@ -1713,7 +1758,7 @@ static const step_t *gen_step(const seq_t *s, int t, const tpat_t *tp, int p, co
     }
     out->vel = (uint8_t)(v & 0x7Fu ? v & 0x7Fu : 1u);
     if (step_empty(st)) {
-        step_root(tp, out->note);
+        step_gen_notes(tp, s->gen_p[t][0], p, out->note);
     }
     return out;
 }
@@ -2081,6 +2126,8 @@ static void fire_step(seq_t *s, int t, const seq_sink_t *o)
     if (gen) {                        /* the shadow decides the step (TURING: as it starts) */
         if (!cover && s->gen_p[t][0] == GEN_TURING)
             gen_turing_step(s, t, p);
+        else if (wrapped && s->gen_p[t][0] == GEN_MUTATE)
+            gen_mutate(s, t);
         st = gen_step(s, t, tp, lp, st, &gst);
     }
     if (drum) {

@@ -1735,7 +1735,8 @@ static void page_knobs(knob_t *k)
         break;
     }
     case P_GEN: {                                    /* the track's generator (per pattern): the mode and its three settings */
-        static const char *const GN[NGEN] = {"off", "euclid", "turing"};
+        static const char *const GN[NGEN] = {"off", "euclid", "turing", "mutate"};
+        static const char *const FZ[2] = {"off", "on"};
         static char v[3][8];
         uint8_t g[4];
         if (is_aux(trk) || is_drum(trk))
@@ -1751,6 +1752,10 @@ static void page_knobs(knob_t *k)
             kv(&k[1], "LENGTH", v[0], g[1], NSTEP);
             kv(&k[2], "LOCK", v[1], g[2], 127);
             kv(&k[3], "DENSITY", v[2], g[3], 127);
+        } else if (g[0] == GEN_MUTATE) {
+            kv(&k[1], "AMOUNT", v[0], g[1], 127);
+            kname(&k[2], "FREEZE", FZ, g[2] & 1u, 2);
+            kv(&k[3], "EDITS", v[2], g[3], 2);
         }
         break;
     }
@@ -3687,7 +3692,7 @@ static void draw_steps_as(void)
         hit_t hm;
         if (gen && in && seq_gen_vel(&seq, trk, s) && step_empty(st)) {   /* a generated hit: the root, as it plays */
             gst = *st;
-            step_root(tp, gst.note);
+            step_gen_notes(tp, seq_gen_mode(&seq, trk), s, gst.note);
             st = &gst;
             live = 1;
         }
@@ -5938,10 +5943,10 @@ static void draw_gen(void)                           /* the generator page: the 
         text_c(120, 64, &FONT_S, "a melodic track's pattern", K_DIM);
     } else if (!mode) {
         text_c(120, 30, &FONT_B, "generator off", K_TEXT);
-        text_c(120, 54, &FONT_S, "KNOB 1: euclid or turing", K_DIM);
+        text_c(120, 54, &FONT_S, "KNOB 1: euclid, turing or mutate", K_DIM);
         text_c(120, 72, &FONT_S, "it plays a live copy of the steps", K_DIM);
     } else {
-        e = note_name(rn[0], s_cat(s_cat(s_cat(t, TRACK_NAME[trk]), mode == GEN_EUCLID ? " euclid" : " turing"), ", root "));
+        e = note_name(rn[0], s_cat(s_cat(s_cat(t, TRACK_NAME[trk]), mode == GEN_EUCLID ? " euclid" : mode == GEN_MUTATE ? " mutate" : " turing"), ", root "));
         if (rn[1])                                   /* a chord: the lowest note and how many more */
             num_s((uint32_t)(rn[2] ? rn[3] ? 3 : 2 : 1), s_cat(e, " +"));
         cv_text(4, 0, &FONT_XS, t, K_TEXT);

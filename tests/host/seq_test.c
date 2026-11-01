@@ -1833,6 +1833,64 @@ static void t_generators(void)         /* EUCLID and TURING: a shadow of the ste
     printf("ok %s\n", cur);
 }
 
+static int gen_hits(int n)             /* the shadow's hits among the first n steps */
+{
+    int c = 0;
+    for (int i = 0; i < n; i++)
+        c += seq_gen_vel(&S, 0, i) > 0;
+    return c;
+}
+static void t_mutate(void)             /* MUTATE: the live copy drifts each pass, the pitch stays with the melody */
+{
+    uint32_t a, b;
+    cur = "mutate";
+    reset();                                      /* amount 0: the shadow is the pattern, whatever the passes */
+    P.pat[0][0].len = 8;
+    st(0, 0)->note[0] = 60; st(0, 0)->vel = 90;
+    st(0, 4)->note[0] = 67; st(0, 4)->vel = 80;
+    gen_set(0, GEN_MUTATE, 0, 0, 2);
+    start();
+    run(8 * 8 * L16);
+    CHECK(gen_hits(8) == 2 && seq_gen_vel(&S, 0, 0) == 90 && seq_gen_vel(&S, 0, 4) == 80);
+    CHECK(step_empty(st(0, 1)) && st(0, 0)->vel == 90);   /* the stored pattern is untouched */
+    stop();
+    reset();                                      /* amount 127: it changes within a few passes, freeze stops it */
+    P.pat[0][0].len = 8;
+    st(0, 0)->note[0] = 60; st(0, 0)->vel = 100;
+    st(0, 4)->note[0] = 67; st(0, 4)->vel = 100;
+    gen_set(0, GEN_MUTATE, 127, 0, 2);
+    start();
+    run(8 * 6 * L16);
+    CHECK(!(gen_hits(8) == 2 && seq_gen_vel(&S, 0, 0) == 100 && seq_gen_vel(&S, 0, 4) == 100));
+    CHECK(step_empty(st(0, 1)) && step_empty(st(0, 2)));
+    gen_set(0, GEN_MUTATE, 127, 1, 2);            /* freeze */
+    run(L16);
+    a = 0;
+    for (int i = 0; i < 8; i++)
+        a = a * 131u + (uint32_t)seq_gen_vel(&S, 0, i);
+    run(8 * 6 * L16);
+    b = 0;
+    for (int i = 0; i < 8; i++)
+        b = b * 131u + (uint32_t)seq_gen_vel(&S, 0, i);
+    CHECK(a == b);
+    stop();
+    /* a hit on an empty step plays the nearest earlier stored step's notes (wrapping), the root for none */
+    {
+        tpat_t *tp = &P.pat[0][0];
+        uint8_t n[SN];
+        reset();
+        tp = &P.pat[0][0];
+        tp->len = 8;
+        st(0, 2)->note[0] = 64;
+        st(0, 6)->note[0] = 71;
+        CHECK(step_gen_notes(tp, GEN_MUTATE, 4, n) == 2 && n[0] == 64);
+        CHECK(step_gen_notes(tp, GEN_MUTATE, 7, n) == 6 && n[0] == 71);
+        CHECK(step_gen_notes(tp, GEN_MUTATE, 1, n) == 6 && n[0] == 71);   /* (wrapped back past 0) */
+        CHECK(step_gen_notes(tp, GEN_EUCLID, 7, n) == 2 && n[0] == 64);   /* (the root: the first step with notes) */
+    }
+    printf("ok %s\n", cur);
+}
+
 static void t_random_player(void)     /* the random player: the grid's active slots, the pool, the phrase knobs */
 {
     cur = "random-player";
@@ -3563,6 +3621,7 @@ int main(void)
     t_hold_player();
     t_random_player();
     t_generators();
+    t_mutate();
     t_punch_keys();
     t_duck();
     t_loops();

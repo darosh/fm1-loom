@@ -238,7 +238,7 @@ const hit_t *step_hit(const patterns_t *P, int trk, int pat, int step, int sound
 uint16_t lane_pool_get(const lane_t *L, int trk, int pat);              /* a random pattern's pool mask, 0 none */
 int lane_pool_set(lane_t *L, int trk, int pat, uint16_t mask);          /* -1 = no lane free */
 void lane_pool_free(lane_t *L, int trk);
-enum { GEN_OFF, GEN_EUCLID, GEN_TURING, NGEN };                          /* a track's generator (LANE_GEN val[0]) */
+enum { GEN_OFF, GEN_EUCLID, GEN_TURING, GEN_MUTATE, NGEN };                          /* a track's generator (LANE_GEN val[0]) */
 int lane_gen_get(const lane_t *L, int trk, int pat, uint8_t g[4]);     /* mode and its three settings; 0 = off (g zeroed) */
 int lane_gen_set(lane_t *L, int trk, int pat, const uint8_t g[4]);     /* mode 0 frees the lane; -1 = no lane free */
 extern volatile uint16_t lane_epoch;     /* bumped when a lane is allocated or freed (the ISR's pool cache) */

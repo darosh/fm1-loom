@@ -289,6 +289,21 @@ int step_root(const tpat_t *p, uint8_t n[SN])
     return -1;
 }
 
+int step_gen_notes(const tpat_t *p, int mode, int s, uint8_t n[SN])
+{
+    int len = p->len < 1 ? 1 : p->len > NSTEP ? NSTEP : p->len, k, i, j;
+    if (mode == GEN_MUTATE)
+        for (k = 1; k < len; k++) {
+            j = ((s - k) % len + len) % len;
+            if (!step_empty(&p->st[j]) && p->st[j].note[0]) {
+                for (i = 0; i < SN; i++)
+                    n[i] = p->st[j].note[i];
+                return j;
+            }
+        }
+    return step_root(p, n);
+}
+
 /* the kit's steps (seq.h): the interrupt reads note[0] and note[1] apart, so a change between them plays at
  * most one step half old */
 void kit_set(step_t *st, uint32_t mask)

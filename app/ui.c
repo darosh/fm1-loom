@@ -2348,9 +2348,15 @@ static void gen_knob(int trk, int k, int32_t e)
             g[1] = 16;
             g[2] = 50;
             g[3] = 50;
+        } else if (m == GEN_MUTATE) {                /* amount a third, not frozen, one edit a pass */
+            g[1] = 40;
+            g[2] = 0;
+            g[3] = 1;
         } else {
             g[1] = g[2] = g[3] = 0;
         }
+    } else if (g[0] == GEN_MUTATE) {                 /* K2 amount, K3 freeze (off/on), K4 edits (1..2) */
+        g[k] = (uint8_t)clampi(g[k] + (k == 1 ? (int)e : d), k == 3 ? 1 : 0, k == 1 ? 127 : k == 2 ? 1 : 2);
     } else if (g[0] == GEN_EUCLID) {                 /* K2 hits, K3 rotate (K4 none) */
         if (k == 3)
             return;
@@ -2372,13 +2378,15 @@ static void gen_knob(int trk, int k, int32_t e)
 static void act_gen_commit(void)
 {
     int trk = sel_trk();
-    uint8_t root[SN];
+    uint8_t root[NSTEP][SN];
     tpat_t *tp;
-    if (trk >= NTRK || is_drum(trk) || !seq_gen_mode(&seq, trk))
+    int mode = seq_gen_mode(&seq, trk);
+    if (trk >= NTRK || is_drum(trk) || !mode)
         return;
     tp = tpat(trk);
     undo_keep();
-    step_root(tp, root);                          /* (before the steps change: a chord stays whole) */
+    for (int i = 0; i < NSTEP; i++)               /* (before the steps change: a chord stays whole, the pitch is the old neighbour's) */
+        step_gen_notes(tp, mode, i, root[i]);
     for (int i = 0; i < NSTEP; i++) {
         int v = seq_gen_vel(&seq, trk, i);
         step_t *st = &tp->st[i];
@@ -2388,7 +2396,7 @@ static void act_gen_commit(void)
         } else {
             if (step_empty(st))
                 for (int j = 0; j < SN; j++)
-                    st->note[j] = root[j];
+                    st->note[j] = root[i][j];
             st->vel = (uint8_t)v;
         }
     }

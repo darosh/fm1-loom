@@ -398,6 +398,8 @@ int seq_gen_loop_vel(const seq_t *s, int t, int j);
 void step_set_notes(step_t *st, const uint8_t *notes, int n, int vel);
 void step_toggle_note(step_t *st, int note);
 int step_empty(const step_t *st);
+int step_gen_notes(const tpat_t *p, int mode, int s, uint8_t n[SN]);   /* the notes a generator's hit plays on empty step s:
+                                                  * MUTATE the nearest earlier step's that has any (wrapping), else the root */
 int step_root(const tpat_t *p, uint8_t n[SN]);   /* a generator's root: the notes of the first step that has any
                                                   * (a chord is kept whole), else C4; returns that step, -1 none */
 /* a random track's active slots: the steps holding a note or a trick; when none is set, every step plays */
