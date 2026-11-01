@@ -1512,7 +1512,7 @@ static void step_knobs(knob_t *k)
         for (int i = 0; i < SN && !n; i++)
             n = st->note[i];
         if (n && pl_type(sel_trk()) == PL_RAND)
-            s_cat(t, "on");                           /* (a random slot: its pitch is drawn) */
+            num_i(n / 12 - 1, s_cat(t, "*"));         /* (a random slot: its octave only, its pitch is drawn) */
         else if (n)
             note_name(n, t);
         else
@@ -3733,12 +3733,10 @@ static void draw_steps_as(void)
         } else if (on) {
             uint16_t dim = bg == K_NOW ? K_BG : K_DIM;
             if (pl_type(trk) == PL_RAND) {
-                text_c(x + ST_MID, y + ST_L1, &FONT_XS, "on", implicit ? dim : fg);
-                if (!implicit) {                     /* its register: the octave its note sets (4: C4, a plain tap) */
-                    char o[4];
-                    num_i((st->note[0] ? st->note[0] : 60) / 12 - 1, o);
-                    text_c(x + ST_MID, y + ST_L2, st_font(o), o, dim);
-                }
+                char o[8];                              /* the step's own octave, its pitch drawn: "*4" for C4 (60) */
+                s_cat(o, "*");
+                num_i((st->note[0] ? st->note[0] : 60) / 12 - 1, o + 1);
+                text_c(x + ST_MID, y + ST_L1, &FONT_XS, o, implicit ? dim : fg);
             } else if (trk == AUX_PUNCH) {
                 int fx = st->note[0] - 1;
                 /* the effect in capitals (no descender to meet the line under it), three letters, over its group */
