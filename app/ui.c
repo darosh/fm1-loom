@@ -971,6 +971,14 @@ static void lock_knob(int k, int32_t e)
     for (int i = 0; i < 16; i++)
         if (ui.held >> i & 1u) {
             int s = step_shown(i), v = pats.lane[ln].val[s];
+            if (is_drum(trk) && !steps_page(ui.page)) {   /* (a kit's EDIT pages: the key shown put on the step) */
+                step_t *st = &tpat(trk)->st[s];
+                if (!kit_has(st, ui.dsound + 1)) {
+                    if (step_empty(st))
+                        memset(st, 0, sizeof *st);
+                    kit_toggle(st, ui.dsound + 1);
+                }
+            }
             if (v == LOCK_NONE)
                 v = proj.trk[trk].par[p];
             pats.lane[ln].val[s] = (uint8_t)clampi(v + e, in->lo, in->hi);
@@ -1655,6 +1663,23 @@ static void key_down(int k)
             set_tp(AUX_BRAIN, TP_E1, src);
             say("FOLLOW", src ? TRACK_NAME[b] : "off");
         }
+        return;
+    }
+    if (w >= 0 && kit_edit_steps()) {             /* a kit's EDIT pages: the key shown on the bar's steps. A tap toggles
+                                                  * it (at the release, as on Steps); held, the knobs lock this page's
+                                                  * knobs on the step (lock_knob: the key put on it if it has not) */
+        ui.kmode[k] = KM_STEP;
+        ui.touched = -1;
+        if (!ui.held) {
+            ui.held_first = (uint8_t)w;
+            ui.held_used = 0;
+            ui.held_multi = 0;
+        } else
+            ui.held_multi = 1;
+        ui.len_key = 0;
+        ui.held |= (uint16_t)(1u << w);
+        ui.lockpg = (uint8_t)(ui.page + 1);
+        ui.trickpg = 0;
         return;
     }
     keyboard_down(k);
@@ -2708,6 +2733,10 @@ static void list_change_do(int32_t e)
             proj.rsv[2] = (uint8_t)(d > 0 ? proj.rsv[2] | SCENES_OUT : proj.rsv[2] & ~SCENES_OUT);
             mark_dirty();
             break;
+        case A_CC_IN:
+            proj.rsv[3] = (uint8_t)(d > 0 ? proj.rsv[3] | CC_IN_ENDLESS : proj.rsv[3] & ~CC_IN_ENDLESS);
+            mark_dirty();
+            break;
         default: break;
         }
         break;
@@ -3724,6 +3753,7 @@ static void action_run(int a)
     case A_FOLLOW: case A_USB_AUDIO: case A_COUNT_IN: case A_THEME: case A_LARGE_TYPE: case A_PLAYMODE: case A_FTYPE: case A_FX_HP: case A_FX_LP:
     case A_FX_SEND: case A_PUMP_BY: case A_PUMP_REL: case A_PUMP_ACC: case A_LEVEL: case A_SCENE_AT: case A_AUTOSAVE:
     case A_MIDI_OUT: case A_LOOP_FREE: case A_CC_OUT: case A_SCENES_OUT: case A_MIDI_CC: case A_USB_HOST: case A_KIT_FILTER:
+    case A_CC_IN:
         return;   /* (ALGORITHM sets them; SEL
                                                                                     * leaves the list) */
     case A_REMOVE_NOTE: act_remove_note(lst.sel); break;
@@ -4025,13 +4055,15 @@ static void leds(void)
         if (ui.page >= PAGE_BTN[i].first && ui.page < PAGE_BTN[i].first + PAGE_BTN[i].n)
             b |= 1u << PAGE_BTN[i].btn;
     if (proj.lights) {
-        if ((steps_page(ui.page) || ui.page == P_GEN) && is_seqt(trk)) {
+        if ((steps_page(ui.page) || ui.page == P_GEN || kit_edit_steps()) && is_seqt(trk)) {   /* (a kit's EDIT pages: its steps too) */
             const tpat_t *tp = tpat(trk);
             int ph = eng_step[trk], gen = seq_gen_mode(&seq, trk) != 0;
             for (i = 0; i < 16; i++) {
                 int s = ui.bar * 16 + (int)i;
-                if ((gen ? seq_gen_vel(&seq, trk, s) > 0 : step_on(&tp->st[s], trk)) && s < tp->len)
-                    mid |= 1u << WHITE_K[i];         /* (the steps with notes: the mid level, brighter than the glow) */
+                if ((gen ? seq_gen_vel(&seq, trk, s) > 0
+                          : steps_page(ui.page) || ui.page == P_GEN ? step_on(&tp->st[s], trk) : kit_has(&tp->st[s], ui.dsound + 1)) && s < tp->len)
+                    mid |= 1u << WHITE_K[i];         /* (the steps with notes: the mid level, brighter than the glow; a
+                                                      * kit's EDIT pages: the steps of the key shown) */
                 if (playing() && s == ph)
                     k |= 1u << WHITE_K[i];
             }

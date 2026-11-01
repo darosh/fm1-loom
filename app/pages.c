@@ -60,6 +60,8 @@ static const theme_t *theme = &THEMES[THEME_BW];
 #define CC_OUT_OFF 16u                                /* proj.rsv[2]: no MIDI CCs out (midicc.c; on by default) */
 #define SCENES_OUT 32u                                 /* proj.rsv[2]: a scene change's Program Change out (midicc.c;
                                                         * off by default, old and new projects alike) */
+#define CC_IN_ENDLESS 1u                               /* proj.rsv[3]: CCs in from endless encoders, each a turn
+                                                        * (midicc.c cc_delta; absolute by default) */
 #define K_BG theme->bg
 #define K_PANEL theme->panel
 #define K_PANEL2 theme->panel2
@@ -284,7 +286,7 @@ enum { A_CLEAR_NOTES, A_CLEAR_LOCKS, A_CLEAR_BOTH, A_COPY_PAT, A_PASTE_PAT, A_RO
        A_KIT, A_SAVE_KIT, A_MIDI_CC, A_USB_HOST, A_BT_MIDI, A_BT_AUDIO, A_BT_ADEV, A_BT_DEVICE, A_BT_DEV, A_BT_LOOK,
        A_BT_FORGET, A_BT_DISCONNECT, A_CLEAR, A_ROTATE, A_PASTE, A_COPY_EMPTY, A_CLEAR_BAR,
        A_COPY_SOUND, A_PASTE_SOUND, A_COPY_KEY, A_PASTE_KEY, A_COPY_SCENE, A_PASTE_SCENE, A_DUP_SLOT, A_KIT_FILTER,
-       A_SHIFT, A_LARGE_TYPE, A_GEN_COMMIT, NACTIONS };
+       A_SHIFT, A_LARGE_TYPE, A_CC_IN, A_GEN_COMMIT, NACTIONS };
 static const char *const ACTION_NAME[NACTIONS] = {
     "CLEAR NOTES", "CLEAR LOCKS", "CLEAR NOTES AND LOCKS", "COPY PATTERN", "PASTE PATTERN", "ROTATE FORWARD",
     "ROTATE BACK", "DUPLICATE BAR", "ENGINE", "PRESET", "SCRAMBLE", "SAVE AS PRESET", "RESET SOUND", "FOLLOWS CONDUCTOR",
@@ -295,7 +297,7 @@ static const char *const ACTION_NAME[NACTIONS] = {
     "PASTE LOCKS ONLY", "DOUBLE PATTERN", "CLEAR LOCKS", "CC OUT", "SCENES OUT", "KIT", "SAVE KIT", "KNOB CC",
     "USB PORT", "BT MIDI", "BT AUDIO", "AUDIO DEVICE", "MIDI DEVICE", "DEVICE", "LOOK AGAIN", "FORGET", "DISCONNECT",
     "CLEAR", "ROTATE", "PASTE", "COPY TO EMPTY", "CLEAR BAR", "COPY SOUND", "PASTE SOUND", "COPY DRUM", "PASTE DRUM",
-    "COPY SCENE", "PASTE SCENE", "DUPLICATE SLOT", "KIT FILTER", "SHIFT NOTES", "LARGE TYPE", "COMMIT GENERATOR"};
+    "COPY SCENE", "PASTE SCENE", "DUPLICATE SLOT", "KIT FILTER", "SHIFT NOTES", "LARGE TYPE", "CC IN", "COMMIT GENERATOR"};
 static const char *const CLEAR_WHAT[3] = {"notes", "locks", "notes and locks"};
 /* a pick ALGORITHM sets at once (a setting: SEL only leaves the list), as against a choice SEL then carries out */
 static int pick_sets(int a)
@@ -304,7 +306,7 @@ static int pick_sets(int a)
     case A_FOLLOW: case A_USB_AUDIO: case A_COUNT_IN: case A_THEME: case A_LARGE_TYPE: case A_PLAYMODE: case A_FTYPE:
     case A_FX_HP: case A_FX_LP: case A_FX_SEND: case A_PUMP_BY: case A_PUMP_REL: case A_PUMP_ACC: case A_LEVEL:
     case A_SCENE_AT: case A_AUTOSAVE: case A_MIDI_OUT: case A_LOOP_FREE: case A_CC_OUT: case A_SCENES_OUT: case A_MIDI_CC:
-    case A_USB_HOST: case A_KIT_FILTER:
+    case A_USB_HOST: case A_KIT_FILTER: case A_CC_IN:
         return 1;
     default:
         return 0;
@@ -640,6 +642,14 @@ static int playing(void) { return seq.playing; }
 #define NCIN 4                                       /* the count-in's choices (proj.rsv[0]): off, 1 bar, 2 bars, on note */
 #define CIN_NOTE 3
 static int recording(void) { return seq.rec || seq.rec_wait || ui.rec_armed; }
+static int page_btn_held(int b);
+/* a kit's EDIT pages: the white keys put the key shown (black keys pick it) on the bar's steps, as Steps does; while
+ * recording, or with EDIT held, they play the kit as before */
+static int kit_edit_steps(void)
+{
+    int t = sel_trk();
+    return is_drum(t) && PAGE_BTN[page_group(ui.page)].btn == B_EDIT && !recording() && !page_btn_held(B_EDIT);
+}
 static int step_shown(int i) { return ui.bar * 16 + i; }
 static step_t *chord_step(int t, int i)              /* chord mode's held cell i: in the bar and pattern it began in */
 {
@@ -1112,7 +1122,7 @@ static void draw_header(void)
                     s_cat(tt, "ext");
                 else
                     tempo_text(tt);
-                int32_t room = r - (plat_battery() >= 0 ? BATT_W + 5 : 0) - text_w(&FONT_S, tt) - 8 - x;
+                int32_t room = r - (plat_battery() >= 0 ? BATT_W + 5 : 0) - text_w(&FONT_S, tt) - 8 - x - (rec ? 16 : 0);
                 if (text_w(nf, pn) > room)
                     nf = &LFONT_B;
                 if (text_w(nf, pn) > room) {         /* (still too long: as far as it goes) */
@@ -1135,15 +1145,15 @@ static void draw_header(void)
         r -= text_w(&FONT_S, t);
         cv_text(r, LARGE ? cap_y(0, HDR_H, &FONT_S) : 4, &FONT_S, t, K_TEXT);
         r -= 6;
+        if (rec) {                                   /* (before the scene: the scene gives way) */
+            r -= 10;
+            cv_round(r, HDR_H / 2 - 4, 9, 9, 4, K_REC);
+            r -= 6;
+        }
         num_s((uint32_t)cur_scene() + 1u, s_cat(t, "S"));   /* the scene playing, on every page */
         if (r - text_w(&FONT_S, t) >= x + 6) {
             r -= text_w(&FONT_S, t);
             cv_text(r, LARGE ? cap_y(0, HDR_H, &FONT_S) : 4, &FONT_S, t, K_DIM);
-            r -= 6;
-        }
-        if (rec) {
-            r -= 10;
-            cv_round(r, HDR_H / 2 - 4, 9, 9, 4, K_REC);
             r -= 6;
         }
         if (ui.dirty && LARGE && r - 8 >= x + 4)    /* large type: unsaved, a dot */
@@ -2268,7 +2278,8 @@ static void page_footer(char *t)
         else if (is_drum(trk) && (ui.page == P_ENV2 || ui.page == P_KITF))
             s_cat(t, ui.page == P_KITF ? "PRESET on or off|KEYS play" : "KEYS play");
         else if (is_drum(trk) && ui.page <= P_LFO2)
-            s_cat(t, "BLACK pick a key|KEYS play");
+            s_cat(t, !kit_edit_steps() ? "BLACK pick a key|KEYS play"
+                     : ui.held ? "KNOBS lock the step|SEL held + KNOB clear" : "BLACK pick a key|WHITE its steps");
         else if (ui.page == P_ENGINE)
             s_cat(t, "PRESET next sound|SEL engine");
         else if (ui.page == P_FILTER && !is_acid(trk))
@@ -2974,6 +2985,7 @@ static void list_setup(int g)
     list_add(ACTION_NAME[A_USB_HOST], plat_usb_host_state() ? "MIDI host" : "computer", LK_PICK, A_USB_HOST);
 #endif
     list_page_knobs(P_SETUP, 6u);                    /* CLOCK, NOTES */
+    list_add(ACTION_NAME[A_CC_IN], proj.rsv[3] & CC_IN_ENDLESS ? "endless" : "absolute", LK_PICK, A_CC_IN);
     list_add(ACTION_NAME[A_CC_OUT], proj.rsv[2] & CC_OUT_OFF ? "off" : "on", LK_PICK, A_CC_OUT);
     list_add(ACTION_NAME[A_SCENES_OUT], proj.rsv[2] & SCENES_OUT ? "on" : "off", LK_PICK, A_SCENES_OUT);
     list_head("LOOM-8");
@@ -3173,8 +3185,9 @@ static void list_paint(int32_t oy)
                 const felucca_font_t *vf = text_w(&FONT_B, v) <= room ? &FONT_B : text_w(&FONT_S, v) <= room ? &FONT_S
                                          : text_w(&LFONT_S, v) <= room ? &LFONT_S : &LFONT_XS;
                 w = text_w(vf, v);
-                text_fit(202 - (w < room ? w : room), vf != &FONT_B && vf != &FONT_S ? cap_y(y, LIST_RH - 1, vf) - 1 : ty, vf,
-                         v, room, fg);
+                text_fit(202 - (w < room ? w : room), vf != &FONT_B && vf != &FONT_S ? cap_y(y, LIST_RH - 1, vf) - 1
+                                                      : ty - (LARGE && vf == &FONT_B),   /* (large: its descenders clear) */
+                         vf, v, room, fg);
             }
             if (now)
                 glyph_pick(213, ty + 3, fg);
@@ -3524,7 +3537,8 @@ static void draw_weave_steps(void)
     if (!begin_main(h))
         return;
     num_s((uint32_t)pats.scene[cur_scene()].weave % NPATT + 1u, s_cat(t, "WEAVE P"));
-    cv_text(ST_X + 2, 0, &FONT_XS, t, K_TEXT);
+    if (band == &BANDS[0])                           /* (large type: the cells from the top; the knob says the pattern) */
+        cv_text(ST_X + 2, 0, &FONT_XS, t, K_TEXT);
     for (int i = 0; i < 16; i++) {
         int s = ui.bar * 16 + i, in = s < len;
         const wv_step_t *w = &wp->st[s];
@@ -4831,8 +4845,8 @@ static void draw_knit_x(void)
         return;
     for (int l = 0; l < 4; l++) {
         pen_t pn = {0};
-        float cy = 14.0f + (float)l * 26.0f, amp = 10.0f * lv[l];
-        cv_text(8, (int32_t)cy - 6, &FONT_XS, NM[l], lv[l] > 0.0f ? K_DIM : K_FAINT);
+        float cy = (float)MY(14 + l * 26), amp = (float)MY(10) * lv[l];   /* (large type: the rows closer) */
+        cv_text(8, (int32_t)cy - LY(6, 7), LY(&FONT_XS, F_CAP), NM[l], lv[l] > 0.0f ? K_DIM : K_FAINT);
         for (int32_t x = 0; x <= 170; x++) {
             float ph = (float)x / 170.0f * 3.0f * (l == 1 ? ratio : l == 2 ? 0.5f : 1.0f), fr = ph - fm_floorf(ph), y;
             if (l == 2)
@@ -4848,15 +4862,59 @@ static void draw_knit_x(void)
         num_i(st, s_cat(t, st > 0 ? "osc 2 +" : "osc 2 ")), s_cat(t + s_len(t), " st");
     else
         s_cat(t, "osc 2 in unison");
-    text_r(230, 100, &FONT_XS, t, K_DIM);
+    text_r(230, LY(100, 64), F_CAP, t, K_DIM);
     cv_blit(0, MAIN_Y);
 }
-/* the Sub page: the engine's second page of knobs (TP_X1..X4), knit's layers or rayon's fall */
+/* acid's Sub page: its drive (TP_X1 amount, TP_X2 off / soft / rat; bass303.c drive_block) on two cycles of a sine,
+ * the input faint and what comes out bright, each scaled to the picture's height (the shape, not the level) */
+static void draw_acid_x(void)
+{
+    int trk = sel_trk();
+    const uint8_t *p = par_now(trk);
+    int ty = p[TP_X2] % 3;
+    float d = (float)p[TP_X1] / 127.0f, g = ty == 1 ? fm_exp2f(d * 24.0f * 0.166096405f) : 1.0f + d * 40.0f;
+    float cy = (float)MY(54), amp = (float)MY(34), y[171], top = 0.0f;
+    uint32_t h = hash_u(hash_u(2166136261u, 0xA7u), (uint32_t)trk | (uint32_t)p[TP_X1] << 4 | (uint32_t)ty << 12 |
+                                                    (uint32_t)p[TP_X3] << 16);
+    pen_t a = {0}, b = {0};
+    char t[32];
+    if (!begin_main(h))
+        return;
+    for (int x = 0; x <= 170; x++) {                 /* the curve, then its height to scale it to the picture */
+        float v = fm_sin_turns((float)x / 85.0f), u = v * g;
+        if (ty == 1)
+            u = fm_tanhf(u + 0.15f) - 0.14888503f;   /* soft: tanh, a little asymmetric */
+        else if (ty == 2) {
+            float x2 = u * u, sq = fm_rsqrtf(1.0f + x2 * x2);
+            u *= sq * fm_rsqrtf(sq);                 /* rat: x / (1 + x^4)^(1/4) */
+        } else
+            u = v;
+        y[x] = u;
+        top = fm_maxf(top, fm_fabsf(u));
+    }
+    cv_rect(56, (int32_t)cy, 171, 1, K_LINE);
+    for (int x = 0; x <= 170; x++) {
+        pen_to(&a, (float)(56 + x), cy - fm_sin_turns((float)x / 85.0f) * amp, K_FAINT);
+        pen_to(&b, (float)(56 + x), cy - y[x] / (top > 0.0f ? top : 1.0f) * amp, ty && d > 0.0f ? K_NOW : K_DIM);
+    }
+    cv_text(8, MY(20), F_CAP, "in", K_FAINT);
+    cv_text(8, MY(34), F_CAP, "out", ty && d > 0.0f ? K_NOW : K_DIM);
+    if (!ty || d <= 0.0f)
+        s_cat(t, "drive off");
+    else
+        num_i((int32_t)(d * 100.0f + 0.5f), s_cat(s_cat(s_cat(t, "drive "), ty == 1 ? "soft" : "rat"), " ")), s_cat(t + s_len(t), " %");
+    cv_text(8, LY(100, 64), F_CAP, t, K_DIM);
+    text_r(230, LY(100, 64), F_CAP, "shaper: the square's edge", K_FAINT);
+    cv_blit(0, MAIN_Y);
+}
+/* the Sub page: the engine's second page of knobs (TP_X1..X4), knit's layers, rayon's fall or acid's drive */
 static void draw_sub(void)
 {
     int eg = proj.trk[sel_trk()].par[TP_ENGINE];
     if (eg == EG_RAYON)
         draw_rayon_fall();
+    else if (eg == EG_ACID)
+        draw_acid_x();
     else if (eg == EG_SAMPLE || eg == EG_MIDI)
         draw_engine();                           /* (the sample's loop page: the waveform, its loop marked; MIDI's
                                                   * knobs 5..8: its eight bars) */
@@ -5836,7 +5894,7 @@ static void ink_follow(void)                         /* another track: its ink, 
 static void weave_row(int32_t y, const char *label, uint16_t lc, const tpat_t *p, const tpat_t *a,
                       const tpat_t *b, int ka, int kb, int rule, uint16_t ca, uint16_t cb, int bar)
 {
-    cv_text(8, y, &FONT_XS, label, lc);
+    cv_text(8, y - LARGE, LY(&FONT_XS, F_CAP), label, lc);   /* (large type: the label small, as the cells) */
     for (int j = 0; j < 16; j++) {               /* the bar shown (OCT): steps bar * 16 .., a shorter pattern round again */
         int32_t x = 54 + j * 11;
         int i = bar * 16 + j;
@@ -5913,7 +5971,7 @@ static void draw_weave(void)
         return;
     if (!f) {
         s_cat(s_cat(t, TRACK_NAME[trk]), " weaves with nothing yet");
-        text_c(120, LY(26, 10), &FONT_B, t, K_TEXT);
+        text_c(120, LY(26, 10), text_w(&FONT_B, t) <= 228 ? &FONT_B : &LFONT_B, t, K_TEXT);   /* ("COND ...": a size down) */
         text_c(120, LY(54, 42), LY(&FONT_S, F_CAP), "black key: the track to weave in", K_DIM);
         text_c(120, LY(72, 56), LY(&FONT_S, F_CAP), "white key: its pattern", K_DIM);
         cv_blit(0, MAIN_Y);
@@ -5926,7 +5984,8 @@ static void draw_weave(void)
     else
         e = s_cat(s_cat(t, TRACK_NAME[trk]), " weaves with ");
     s_cat(e, f - 1 == trk ? bn + s_len(TRACK_NAME[trk]) + 1 : TRACK_NAME[f - 1]);
-    cv_text(8, 2, &FONT_B, t, K_TEXT);
+    if (!LARGE)                                      /* (large type: the header and the knobs say it) */
+        cv_text(8, 2, &FONT_B, t, K_TEXT);
     e = s_cat(s_cat(t, "by "), WEAVE_NAME[r]);
     e = s_cat(e, ": ");
     if (r == WV_BARS || r == WV_STEPS) {             /* in words, with their names */
@@ -5934,20 +5993,21 @@ static void draw_weave(void)
         s_cat(s_cat(e, ", then "), bn);
     } else
         s_cat(s_cat(s_cat(s_cat(e, r == WV_RHYTHM ? an : bn), "'s rhythm, "), r == WV_RHYTHM ? bn : an), "'s pitch");
-    text_fit(8, 26, &FONT_XS, t, 228, K_NOW);
+    text_fit(8, LY(26, 2), LY(&FONT_XS, F_CAP), t, 228, K_NOW);   /* (large type: an explanation's size) */
     {
         const tpat_t *a = tpat(trk), *b = &pats.pat[f - 1][wv_pat(trk)];
         uint16_t ca = trk_ink(trk), cb = f - 1 == trk || trk_ink(f - 1) == ca ? K_TEXT : trk_ink(f - 1);
         int ka = wv_kind(trk), kb = wv_kind(f - 1), la = a->len > b->len ? a->len : b->len;
         int nb = (la + 15) / 16, bar = ui.bar < nb ? ui.bar : nb - 1;
-        weave_row(44, an, K_DIM, a, a, b, ka, kb, r, ca, cb, bar);
-        weave_row(58, bn, K_DIM, b, a, b, ka, kb, r, ca, cb, bar);
-        cv_rect(54, 73, 175, 1, K_LINE);
-        weave_row(77, "plays", K_TEXT, 0, a, b, ka, kb, r, ca, cb, bar);
+        /* (large type: the rows 12 apart in the shorter band, the status line under them) */
+        weave_row(LY(44, 20), an, K_DIM, a, a, b, ka, kb, r, ca, cb, bar);
+        weave_row(LY(58, 33), bn, K_DIM, b, a, b, ka, kb, r, ca, cb, bar);
+        cv_rect(54, LY(73, 46), 175, 1, K_LINE);
+        weave_row(LY(77, 49), "plays", K_TEXT, 0, a, b, ka, kb, r, ca, cb, bar);
         if (nb > 1) {                                /* more than a bar: which one, OCT for the others */
             char bt[16];
             num_s((uint32_t)nb, s_cat(num_s((uint32_t)bar + 1u, s_cat(bt, "bar ")), " of "));
-            cv_text(232 - text_w(&FONT_XS, bt), 98, &FONT_XS, bt, K_DIM);
+            cv_text(232 - text_w(F_CAP, bt), LY(98, 64), F_CAP, bt, K_DIM);
         }
     }
     if (!wv_cued(trk))
@@ -5956,7 +6016,7 @@ static void draw_weave(void)
         s_cat(t, "weaving now");
     else
         num_s((uint32_t)trk + 1u, s_cat(t, "plays while the WEAVE track's white key ")), s_cat(t + s_len(t), " is on");
-    cv_text(8, 98, &FONT_XS, t, !wv_cued(trk) || (seq.wv_live | seq.wv_rec) >> trk & 1u ? K_NOW : K_DIM);
+    text_fit(8, LY(98, 64), F_CAP, t, LY(228, 160), !wv_cued(trk) || (seq.wv_live | seq.wv_rec) >> trk & 1u ? K_NOW : K_DIM);
     cv_blit(0, MAIN_Y);
 }
 /* the WEAVE track's page: the ten tracks it weaves (white keys 1-10), each with its weave, lit while it weaves */
@@ -5970,23 +6030,26 @@ static void draw_weave_play(void)
     if (!begin_main(h))
         return;
     for (int t = 0; t < NSEQT; t++) {
-        int32_t x = 6 + (t % 5) * 46, y = 2 + (t / 5) * 48;
+        /* (large type: the cells 32 high, the name at 15 px and what it weaves with under it; the rule on ARP's Weave) */
+        int32_t x = 6 + (t % 5) * 46, y = LY(2 + (t / 5) * 48, (t / 5) * 34);
         int f = wv_from(t), lit = on >> t & 1u;
         char wt[16];
-        cv_round(x, y, 42, 46, 5, lit ? K_NOW : f ? K_PANEL2 : K_PANEL);
-        text_c(x + 21, y + 3, t < NTRK ? &FONT_S : &FONT_XS, TRACK_NAME[t], lit ? K_BG : f ? K_TEXT : K_FAINT);
+        cv_round(x, y, 42, LY(46, 32), 5, lit ? K_NOW : f ? K_PANEL2 : K_PANEL);
+        text_c(x + 21, LY(y + 3, y + 1), LARGE ? (t < NTRK ? &LFONT_S : &LFONT_XS) : t < NTRK ? &FONT_S : &FONT_XS,
+               TRACK_NAME[t], lit ? K_BG : f ? K_TEXT : K_FAINT);
         if (f) {                                 /* "+T1 P3" (its own: "+P3"), the rule */
             if (t == f - 1)
                 num_s((uint32_t)wv_pat(t) + 1u, s_cat(wt, "+P"));
             else
                 num_s((uint32_t)wv_pat(t) + 1u, s_cat(s_cat(s_cat(wt, "+"), TRACK_NAME[f - 1]), " P"));
-            text_c(x + 21, y + 18, &FONT_XS, wt, lit ? K_BG : K_DIM);
-            text_c(x + 21, y + 29, &FONT_XS, WEAVE_NAME[wv_rule(t)], lit ? K_BG : K_DIM);
+            text_c(x + 21, LY(y + 18, y + 17), F_CAP, wt, lit ? K_BG : K_DIM);
+            if (!LARGE)
+                text_c(x + 21, y + 29, &FONT_XS, WEAVE_NAME[wv_rule(t)], lit ? K_BG : K_DIM);
             any = 1;
         } else
-            text_c(x + 21, y + 22, &FONT_XS, "-", K_FAINT);
+            text_c(x + 21, LY(y + 22, y + 16), F_CAP, "-", K_FAINT);
     }
-    cv_text(8, 99, &FONT_XS, !any ? "no weaves yet: set one on a track's ARP"
+    cv_text(8, LY(99, 66), F_CAP, !any ? "no weaves yet: set one on a track's ARP"
                              : proj.trk[AUX_WEAVE].par[TP_E1] ? "latch: a tap on, a tap off" : "a key held: that track weaves",
             K_DIM);
     cv_blit(0, MAIN_Y);

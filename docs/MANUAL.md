@@ -123,7 +123,7 @@ press…" means keep **HOME** down while you press the next thing.
 | write a beat | Press **SEQ**. On a drum track, black key 1 is the kick: press it, then white keys 1, 5, 9 and 13. Black key 2 is the snare. <!-- hint: press SEQ; black 1; white 1,5,9,13 --> |
 | write a note | On Steps, hold **SEQ** and play the note. Let go and press a white key: the note goes on that step. <!-- hint: hold SEQ; white 3 --> |
 | write a chord | On Steps, hold **SEQ** and hold the notes together. Let go and press a step. <!-- hint: hold SEQ; white 3,5,7 --> |
-| pick a drum sound | On a drum track's Steps page, press its black key, or hold **SEQ** and press any key. <!-- hint: press SEQ; black 1 --> |
+| pick a drum sound | On a drum track's Steps page or its **EDIT** pages, press its black key, or hold **SEQ** and press any key. <!-- hint: press SEQ; black 1 --> |
 | see a step | On Steps, hold its white key. The knobs show its velocity, length, chance and pitch. <!-- hint: white 5 --> |
 | make a note longer | Hold its step and press a later white key. A bar under the cells shows how far a note reaches. <!-- hint: white 1,5 --> |
 | nudge a step | Hold its step and press **OCT−** or **OCT+**. <!-- hint: press OCT−, OCT+; white 5 --> |
@@ -785,7 +785,11 @@ The knobs after the dot are on a second Engine page (turn **SELECT**).
 The x models and clang cost up to twice as much as a voice of a built-in model, and sophie and the 909 models up to
 three times as much. Even with a kit made of them, the busiest demo stays well within what the FM-1 can do.
 
-On every sound page of a drum track, a black key picks the key the knobs edit. Turn **SELECT** for the Key page:
+On every sound page of a drum track, a black key picks the key the knobs edit. On **EDIT**'s pages the white keys
+then put that key on the bar's steps, as on Steps (a tap; again takes it off; they light where it plays), so you can
+shape a sound and write it without leaving the page. Hold a white key and turn a knob to lock it on that step (the
+key goes on the step if it was not there); hold **SEL** and turn it to clear the lock. Hold **EDIT**, or record, and the white keys play the kit as before.
+Turn **SELECT** for the Key page:
 the model, random (a variation on every hit), pan, and volume in dB. Its **SEL** list sets the play mode: one-shot,
 gated, loop, or choke group 1 to 3. When you change a key's model, the new model starts from its own knob settings.
 COPY DRUM copies the drum on the key shown, and PASTE DRUM puts it on another key (of this kit or another): its model, knobs,
@@ -1289,7 +1293,7 @@ On Setup, the knobs are the lights, the MIDI clock (internal, receive or send: s
 notes (on to start with) and the theme (b/w to start with, tape deck or blueprint). The page also shows where the tempo comes from (LOOM-8, or a MIDI clock coming
 in), the USB audio level, the autosave, Bluetooth audio and the Bluetooth MIDI device (see Bluetooth below). The
 version is on the next page, Debug. **SEL** on Setup has the FM-1's own settings, in three groups: Bluetooth (BT
-MIDI, MIDI DEVICE, BT AUDIO, AUDIO DEVICE), USB and MIDI (the USB audio level, USB PORT, CLOCK, NOTES, CC OUT,
+MIDI, MIDI DEVICE, BT AUDIO, AUDIO DEVICE), USB and MIDI (the USB audio level, USB PORT, CLOCK, NOTES, CC IN, CC OUT,
 SCENES OUT), and LOOM-8 (LIGHTS, THEME, AUTOSAVE, LOOP THROWS). The theme belongs to the FM-1, not the project:
 loading a project keeps it. So do all of Setup's settings: they belong to the FM-1, and every project you load
 or start keeps them as you left them. On every page, the header shows the scene playing ("S3") before the
@@ -1472,6 +1476,13 @@ automation.
 
 To pick scenes 1 to 32 over MIDI, send Program Change 0 to 31 on channel 11, or notes 36 to 67 (C1 up) on that
 channel. This works like Arrange's white keys, and SCENES SWITCH decides when the change happens.
+
+CC IN, in Setup's **SEL** list (**GLO**), says what a controller's knobs send. **absolute** (to start with) is for
+pots and faders: a CC's value is the parameter's place. **endless** is for endless encoders sending relative values
+(on a Launchkey, set its encoders to relative): each message turns the parameter by its amount, in the knob's own
+steps, so nothing jumps when the FM-1's value and the encoder's disagree. Both of the usual relative codes work:
+values about 64 (65 is +1, 63 is -1) and signed values (1 is +1, 127 is -1). A mute's CC mutes on a turn up and
+unmutes on a turn down. Like CC OUT, it is the FM-1's setting, kept across projects.
 
 CC OUT is in Setup's **SEL** list (**GLO**) and is on to start with. With it on, turning a mapped knob or **SEL** row
 by hand sends its CC on its channel, if the track's MIDI OUT is on (FX and the master always send). LOOM-8 never
