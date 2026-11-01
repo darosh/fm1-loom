@@ -495,6 +495,8 @@ back to C4. A step with no hit is silent.
 | euclid | hits | rotate | | spreads that many hits as evenly as possible over the pattern's own length (the step length sets it), rotated |
 | turing | length | lock | density | a looping shift register of 2 to 64 bits. Lock 127 repeats the loop exactly; lower, the bit that wraps round is flipped more and more often (0 is a coin toss). Density is how many steps play (0 none, 127 all); the velocity follows the register |
 
+<img src="img/screen-generator-euclid.png" width="240" alt="The Generator page on T3 in euclid mode: four hits spread over the 16 steps, the playhead framed; knobs mode, hits, rotate" title="Euclid"> <img src="img/screen-generator-steps.png" width="240" alt="The Steps page on T3 while the generator plays: the live hits in the cells, each with a small star" title="The live hits on Steps">
+
 Turing starts from the steps the pattern already has, so you can write a rhythm, turn it on and let it drift. The
 register starts again with the transport and when the pattern changes. The loop can be longer or shorter than the pattern: it runs on across passes (64 bits against a 16-step
 pattern is a four-bar loop; 5 bits drifts against the bar). COMMIT writes one pass, the pattern's own
@@ -502,9 +504,13 @@ length. The Generator page's grid shows the loop itself, all of its bits, with t
 Steps page shows the pass. Turn the length while it plays and the loop is kept as it sounds: longer, it is repeated
 to fill the new length; shorter, it is cut.
 
+<img src="img/screen-generator-turing.png" width="240" alt="The Generator page in turing mode, a loop of 16 bits: the grid's first row is the loop, with the frame on the slot last played; knobs mode, length, lock, density" title="Turing, 16 bits"> <img src="img/screen-generator-turing64.png" width="240" alt="The same loop turned to 64 bits: all four rows of the grid are the loop, the frame on the slot last played" title="Turing, 64 bits">
+
 **Keep it.** The **SEL** list on the Generator page has COMMIT GENERATOR, which writes the live copy into the
 pattern: a hit on an empty step gets the root note, a step with no hit loses its notes. Set the mode to off to
 let go of the generator and play the pattern as it is. COMMIT can be undone.
+
+<img src="img/screen-generator-list.png" width="240" alt="The SEL list on the Generator page: COMMIT GENERATOR at the top, then the player, weave and the generator's own settings" title="COMMIT GENERATOR">
 
 ## Recording
 
